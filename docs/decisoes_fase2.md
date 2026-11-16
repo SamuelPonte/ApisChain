@@ -44,9 +44,10 @@
 ## Plano (as issues do GitHub são a referência)
 | Até | Issues |
 |---|---|
-| 19 nov | #1 Identidade e credenciais (Samuel), #2 Transações (André) |
-| 24 nov | #3 Estado e regras (André), #4 Consenso PoA e rede local (Samuel) |
-| 25 nov | #5 Serviço e cenário da demo (André) |
-| 28 nov | #6 e #7 Interfaces (Samuel, André) |
-| 30 nov | #8 Relatório (ambos) |
-| 2 dez | #9 Pitch, ensaio e PDF assinado (ambos) |
+| 16 nov | #2 Transações (André) |
+| 17 nov | #1 Identidade e credenciais (Samuel) |
+| 19 nov | #3 Estado e regras (André), #4 Consenso PoA e rede local (Samuel) |
+| 21 nov | #5 Serviço e cenário da demo (André); base da #6 em `main` (Samuel) |
+| 23 nov | #6 e #7 Interfaces (Samuel, André) |
+| 24 nov | #8 Relatório (ambos) |
+| 25 nov | #9 Guião, ensaio e PDF assinado (ambos). Entregas oficiais mantêm-se: relatório a 1 dez, pitch a 2 dez |

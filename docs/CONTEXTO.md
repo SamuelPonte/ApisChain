@@ -47,13 +47,14 @@ Feito (semana 11 a 14 nov):
 - `apischain.test.TesteNucleo`: teste de consola em 8 passos (main class atual).
 - `docs/`: diagramas de arquitetura e de classes v1 (Graphviz).
 
-Plano seguinte:
+Plano seguinte (antecipado a 16 nov: a Fase 2 fecha a 25 nov; as entregas oficiais continuam a 1 e 2 dez):
 | Período | Código | Documentação |
 |---|---|---|
-| 15 a 19 nov | `identity` (DigitalID, Credential, CredentialType, OffChainStore), `transactions` (Transaction abstrata e subclasses) | Especificação das credenciais e mapa RGPD |
-| 20 a 24 nov | `ledger` (LedgerState, Rules), `consensus` (Node, ProofOfAuthority, LocalNetwork) | relatorio_fase2_v1 (Word) |
-| 25 a 28 nov | `service` (ApisChainService) e `gui` Swing não bloqueante (Thread + SwingUtilities.invokeLater), 3 fraudes, guião da demo | relatorio_fase2_v2 e pitch |
-| 29 e 30 nov | Ensaio e correções | Revisão final, PDF assinado pelos dois |
+| 16 e 17 nov | `transactions` (Transaction abstrata e subclasses, #2), `identity` (DigitalID, Credential, CredentialType, OffChainStore, #1) | Especificação das credenciais e mapa RGPD |
+| 18 e 19 nov | `ledger` (LedgerState, Rules, #3), `consensus` (Node, ProofOfAuthority, LocalNetwork, #4) | relatorio_fase2_v1 (Word) |
+| 20 e 21 nov | `service` (ApisChainService, 3 fraudes, #5); base da `gui` (entrada, janela, exemplo não bloqueante, #6) | |
+| 22 e 23 nov | `gui` Swing não bloqueante (Thread + SwingUtilities.invokeLater), painéis (#6 e #7) | relatorio_fase2_v2 e diagramas v2 (#8, até 24 nov) |
+| 24 e 25 nov | Guião da demo, ensaio e correções (#9) | Revisão final, PDF assinado pelos dois |
 
 ## Referências
 - Protótipo ilustrativo em JavaScript (modelo de dados, regras e fraudes): `projeto/1_fase/ApisChain.html` na pasta partilhada.
