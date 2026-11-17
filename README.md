@@ -27,7 +27,7 @@ Os nomes dos pacotes por fazer são os previstos no diagrama de classes; a rede 
 ## Planeamento
 | Milestone | Data | Conteúdo |
 |---|---|---|
-| Fase 2 · PoC e entrega | 2 dez 2026 | PoC local num só computador, relatório (1 dez) e pitch (2 dez) |
+| Fase 2 · PoC e entrega | 25 nov 2026 | PoC local num só computador, relatório e pitch prontos a 25 nov (entregas oficiais: relatório a 1 dez, pitch a 2 dez) |
 | Fase 3 · Rede P2P e defesa | janeiro 2027 (data por confirmar) | Rede P2P com sockets TCP, relatório final, defesa com desafio sem IA |
 
 ## Documentação
