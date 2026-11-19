@@ -74,6 +74,14 @@ public class TesteIdentidade {
                 lancaExcecao(() -> DigitalID.loadPrivateKey("DGAV", "errada", keys)));
         check("interveniente que não existe é recusado",
                 lancaExcecao(() -> DigitalID.load("Ninguem", keys)));
+        // nomes que sairiam da pasta das chaves ou escreveriam por cima de outro ficheiro
+        check("nome com ../ é recusado e nada é gravado fora da pasta",
+                lancaExcecao(() -> DigitalID.create("../fora", Role.LOJA, "x", keys))
+                && !new File(pasta.getParentFile(), "fora.pub").exists());
+        check("nome com extensão (.priv) é recusado",
+                lancaExcecao(() -> DigitalID.create("DGAV.priv", Role.LOJA, "x", keys)));
+        check("nome com acentos é aceite",
+                DigitalID.create("Laboratório", Role.LAB, "x", keys).getName().equals("Laboratório"));
 
         // ------------------------------------------------------------------
         System.out.println("\n3. ATAQUE: TROCAR A CHAVE PÚBLICA DE UM INTERVENIENTE");

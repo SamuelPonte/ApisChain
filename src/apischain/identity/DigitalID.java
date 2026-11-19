@@ -129,9 +129,9 @@ public class DigitalID implements Serializable {
      * @throws Exception erro ao gerar as chaves ou ao gravar
      */
     public static DigitalID create(String name, Role role, String password, String folder) throws Exception {
-        // 1. criar a pasta se ainda não existir
+        // 1. validar o nome e criar a pasta se ainda não existir
+        String base = getBase(name, folder);
         new File(folder).mkdirs();
-        String base = new File(folder, name).getPath();
         // 2. gerar o par de chaves RSA
         KeyPair keys = SecurityUtils.generateKeyPair();
         // 3. gravar as chaves (a privada fica cifrada com a palavra-passe)
@@ -156,7 +156,7 @@ public class DigitalID implements Serializable {
      * @throws Exception se os ficheiros não existirem ou não forem coerentes
      */
     public static DigitalID load(String name, String folder) throws Exception {
-        String base = new File(folder, name).getPath();
+        String base = getBase(name, folder);
         // 1. ler o DigitalID gravado
         DigitalID id;
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(base + ".id"))) {
@@ -184,7 +184,27 @@ public class DigitalID implements Serializable {
      * @throws Exception se a palavra-passe estiver errada (AEADBadTagException)
      */
     public static PrivateKey loadPrivateKey(String name, String password, String folder) throws Exception {
-        return SecurityUtils.loadPrivateKey(new File(folder, name).getPath(), password);
+        return SecurityUtils.loadPrivateKey(getBase(name, folder), password);
+    }
+
+    /**
+     * Caminho base dos ficheiros de um interveniente (sem extensão).
+     *
+     * O nome só pode ter letras, algarismos, "-" e "_". Sem esta verificação,
+     * um nome como "../../x" gravava as chaves fora da pasta e um nome como
+     * "x.priv" escrevia por cima de outro ficheiro.
+     *
+     * @param name nome do interveniente
+     * @param folder pasta
+     * @return caminho base, por exemplo data/keys/DGAV
+     */
+    private static String getBase(String name, String folder) {
+        // \p{L} é qualquer letra, incluindo as acentuadas (Laboratório)
+        if (!name.matches("[\\p{L}0-9_-]+")) {
+            throw new IllegalArgumentException("Nome inválido: " + name
+                    + " (só letras, algarismos, - e _)");
+        }
+        return new File(folder, name).getPath();
     }
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
