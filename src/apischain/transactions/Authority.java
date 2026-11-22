@@ -19,9 +19,22 @@ public class Authority implements Serializable {
     private final String publicKey;  // chave pública em Base64
 
     public Authority(String did, String role, String publicKey) {
-        this.did = did;
-        this.role = role;
-        this.publicKey = publicKey;
+        this.did = checkText(did, "DID");
+        this.role = checkText(role, "papel");
+        this.publicKey = checkText(publicKey, "chave pública");
+    }
+
+    /**
+     * Na GenesisTx as autoridades são separadas por ";" e os campos de cada uma
+     * por ",", dentro de um texto que usa "|". Nenhum campo pode conter estes
+     * separadores, senão dois conjuntos diferentes de autoridades podiam dar o
+     * mesmo texto assinado.
+     */
+    private static String checkText(String value, String name) {
+        if (value == null || value.contains(",") || value.contains(";") || value.contains("|")) {
+            throw new IllegalArgumentException("O campo " + name + " da autoridade não pode ser null nem conter , ; ou |");
+        }
+        return value;
     }
 
     /**

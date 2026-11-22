@@ -73,7 +73,7 @@ public class TesteTransacoes {
         PackTx embalagem = new PackTx("did:apis:apicultor-0001", "LOTE-2026-0042", 1, 200, 0.5);
         embalagem.sign(apicultor.getPrivate());
 
-        SaleTx venda = new SaleTx("did:apis:loja-01", embalagem.getJarId(137), "did:apis:loja-01");
+        SaleTx venda = new SaleTx("did:apis:loja-01", embalagem.getJarId(137));
         venda.sign(loja.getPrivate());
 
         RevokeTx revogacao = new RevokeTx("did:apis:dgav", "AP-0001", "apiário abandonado");
@@ -98,15 +98,52 @@ public class TesteTransacoes {
                     tx.isSignatureValid(autores[i].getPublic()));
             check(nome + " inválida com a chave de outro interveniente",
                     !tx.isSignatureValid(dop.getPublic()));
-            // alterar o último campo da subclasse depois de assinar (por exemplo "kg=340.0" passa
-            // a "kg=340.09"): o texto assinado muda e a assinatura deixa de servir
-            String alterado = tx.getDataToSign() + "9";
-            check(nome + " alterada depois de assinar é recusada",
-                    !SecurityUtils.verify(alterado, tx.getSignature(), autores[i].getPublic()));
         }
         // transação por assinar
-        SaleTx porAssinar = new SaleTx("did:apis:loja-01", "LOTE-2026-0042-1", "did:apis:loja-01");
+        SaleTx porAssinar = new SaleTx("did:apis:loja-01", "LOTE-2026-0042-1");
         check("transação por assinar é inválida", !porAssinar.isSignatureValid(loja.getPublic()));
+
+        // ------------------------------------------------------------------
+        System.out.println("\n3b. CADA CAMPO ENTRA NO TEXTO ASSINADO");
+        // Para cada campo: duas transações iguais exceto nesse campo têm de dar getContent()
+        // diferente. Se uma subclasse se esquecer de um campo no getContent(), esse campo
+        // podia ser alterado sem a assinatura falhar, e este teste apanha-o.
+        // (Compara-se getContent() e não getDataToSign(), porque a data das duas transações
+        // é sempre diferente e esconderia o esquecimento.)
+        IssueCredentialTx base = new IssueCredentialTx("a", "C1", "LOTE", "S1", "H1", "K1", 10);
+        campoAssinado("IssueCredentialTx.credentialId", base, new IssueCredentialTx("a", "C2", "LOTE", "S1", "H1", "K1", 10));
+        campoAssinado("IssueCredentialTx.credentialType", base, new IssueCredentialTx("a", "C1", "ANALISE_LOTE", "S1", "H1", "K1", 10));
+        campoAssinado("IssueCredentialTx.subject", base, new IssueCredentialTx("a", "C1", "LOTE", "S2", "H1", "K1", 10));
+        campoAssinado("IssueCredentialTx.credentialHash", base, new IssueCredentialTx("a", "C1", "LOTE", "S1", "H2", "K1", 10));
+        campoAssinado("IssueCredentialTx.subjectKey", base, new IssueCredentialTx("a", "C1", "LOTE", "S1", "H1", "K2", 10));
+        campoAssinado("IssueCredentialTx.weightKg", base, new IssueCredentialTx("a", "C1", "LOTE", "S1", "H1", "K1", 11));
+        RevokeTx rev = new RevokeTx("a", "C1", "M1");
+        campoAssinado("RevokeTx.credentialId", rev, new RevokeTx("a", "C2", "M1"));
+        campoAssinado("RevokeTx.reason", rev, new RevokeTx("a", "C1", "M2"));
+        PackTx pack = new PackTx("a", "L1", 1, 10, 0.5);
+        campoAssinado("PackTx.lot", pack, new PackTx("a", "L2", 1, 10, 0.5));
+        campoAssinado("PackTx.firstJar", pack, new PackTx("a", "L1", 2, 10, 0.5));
+        campoAssinado("PackTx.lastJar", pack, new PackTx("a", "L1", 1, 11, 0.5));
+        campoAssinado("PackTx.weightKg", pack, new PackTx("a", "L1", 1, 10, 1.0));
+        campoAssinado("SaleTx.jarId", new SaleTx("a", "J1"), new SaleTx("a", "J2"));
+        FraudAlertTx fa = new FraudAlertTx("a", "J1", "M1");
+        campoAssinado("FraudAlertTx.jarId", fa, new FraudAlertTx("a", "J2", "M1"));
+        campoAssinado("FraudAlertTx.reason", fa, new FraudAlertTx("a", "J1", "M2"));
+        Authority aut = new Authority("D1", "DGAV", "P1");
+        GenesisTx gen1 = new GenesisTx("a", Arrays.asList(aut));
+        campoAssinado("GenesisTx.authorities (DID)", gen1, new GenesisTx("a", Arrays.asList(new Authority("D2", "DGAV", "P1"))));
+        campoAssinado("GenesisTx.authorities (papel)", gen1, new GenesisTx("a", Arrays.asList(new Authority("D1", "LAB", "P1"))));
+        campoAssinado("GenesisTx.authorities (chave)", gen1, new GenesisTx("a", Arrays.asList(new Authority("D1", "DGAV", "P2"))));
+        campoAssinado("GenesisTx.authorities (quantidade)", gen1, new GenesisTx("a", Arrays.asList(aut, aut)));
+        // o autor e a data estão na classe base: alterar o autor muda o texto assinado
+        check("Transaction.author entra no texto assinado",
+                !new SaleTx("a", "J1").getDataToSign().equals(new SaleTx("b", "J1").getDataToSign()));
+        // e a assinatura de uma transação não serve para outra com um campo diferente
+        SaleTx vendaA = new SaleTx("did:apis:loja-01", "J1");
+        vendaA.sign(loja.getPrivate());
+        SaleTx vendaB = new SaleTx("did:apis:loja-01", "J2");
+        check("assinatura da venda do frasco J1 não serve para o frasco J2",
+                !SecurityUtils.verify(vendaB.getDataToSign(), vendaA.getSignature(), loja.getPublic()));
 
         // ------------------------------------------------------------------
         System.out.println("\n4. BASE64 E VOLTA (como fica guardada no bloco)");
@@ -132,6 +169,13 @@ public class TesteTransacoes {
         check("PackTx com último frasco antes do primeiro", lancaExcecao(() -> new PackTx("a", "L", 10, 5, 1)));
         check("PackTx com peso zero", lancaExcecao(() -> new PackTx("a", "L", 1, 5, 0)));
         check("GenesisTx sem autoridades", lancaExcecao(() -> new GenesisTx("a", new ArrayList<>())));
+        // o separador | não pode aparecer nos campos: senão estas duas revogações diferentes
+        // davam o mesmo texto assinado ("credencial=A|motivo=x|motivo=y")
+        check("RevokeTx com | na credencial", lancaExcecao(() -> new RevokeTx("a", "A|motivo=x", "y")));
+        check("RevokeTx com | no motivo", lancaExcecao(() -> new RevokeTx("a", "A", "x|motivo=y")));
+        check("autor com |", lancaExcecao(() -> new SaleTx("a|b", "J1")));
+        check("campo null", lancaExcecao(() -> new FraudAlertTx("a", null, "m")));
+        check("autoridade com ; no DID", lancaExcecao(() -> new Authority("D1;D2", "DGAV", "P1")));
 
         // ------------------------------------------------------------------
         System.out.println("\n6. TRANSAÇÕES DENTRO DE UM BLOCO E PROVA DE MERKLE");
@@ -158,6 +202,13 @@ public class TesteTransacoes {
             System.out.println(falhas + " VERIFICAÇÕES FALHARAM");
             System.exit(1);
         }
+    }
+
+    /**
+     * Verifica que duas transações que só diferem num campo têm conteúdo assinado diferente.
+     */
+    private static void campoAssinado(String campo, Transaction a, Transaction b) {
+        check(campo + " entra no texto assinado", !a.getContent().equals(b.getContent()));
     }
 
     /**

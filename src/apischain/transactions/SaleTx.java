@@ -9,34 +9,38 @@ package apischain.transactions;
  * Venda de um frasco por uma loja registada pela DGAV.
  * Uma segunda venda do mesmo frasco não entra na cadeia: as regras (issue #3)
  * transformam-na num FraudAlertTx (QR copiado).
+ *
+ * A loja que vende é o autor da transação. Não há um campo "loja" à parte
+ * porque, se houvesse, uma loja podia assinar uma venda em nome de outra
+ * (autor = loja A, loja = loja B).
  */
 public class SaleTx extends Transaction {
 
     private final String jarId;  // código do frasco (o que está no QR)
-    private final String shop;   // DID da loja que vende
 
     /**
-     * @param author DID de quem assina (a própria loja)
+     * @param shop DID da loja que vende (é quem assina)
      * @param jarId código do frasco
-     * @param shop DID da loja
      */
-    public SaleTx(String author, String jarId, String shop) {
-        super(author);
-        this.jarId = jarId;
-        this.shop = shop;
+    public SaleTx(String shop, String jarId) {
+        super(shop);
+        this.jarId = checkText(jarId, "frasco");
     }
 
     @Override
     public String getContent() {
-        return "frasco=" + jarId + "|loja=" + shop;
+        return "frasco=" + jarId;
     }
 
     public String getJarId() {
         return jarId;
     }
 
+    /**
+     * @return DID da loja que vendeu (o autor da transação)
+     */
     public String getShop() {
-        return shop;
+        return getAuthor();
     }
 
     private static final long serialVersionUID = 202611160006L;

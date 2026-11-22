@@ -38,7 +38,7 @@ public class PackTx extends Transaction {
         if (weightKg <= 0) {
             throw new IllegalArgumentException("O peso de cada frasco tem de ser positivo");
         }
-        this.lot = lot;
+        this.lot = checkText(lot, "lote");
         this.firstJar = firstJar;
         this.lastJar = lastJar;
         this.weightKg = weightKg;

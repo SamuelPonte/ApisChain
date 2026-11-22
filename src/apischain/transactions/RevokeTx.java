@@ -22,8 +22,8 @@ public class RevokeTx extends Transaction {
      */
     public RevokeTx(String author, String credentialId, String reason) {
         super(author);
-        this.credentialId = credentialId;
-        this.reason = reason;
+        this.credentialId = checkText(credentialId, "credencial");
+        this.reason = checkText(reason, "motivo");
     }
 
     @Override

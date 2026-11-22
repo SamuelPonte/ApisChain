@@ -22,8 +22,8 @@ public class FraudAlertTx extends Transaction {
      */
     public FraudAlertTx(String author, String jarId, String reason) {
         super(author);
-        this.jarId = jarId;
-        this.reason = reason;
+        this.jarId = checkText(jarId, "frasco");
+        this.reason = checkText(reason, "motivo");
     }
 
     @Override

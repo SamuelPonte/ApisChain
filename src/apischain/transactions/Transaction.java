@@ -28,7 +28,9 @@ import java.security.PublicKey;
  *    chave vinha na própria transação, e um atacante podia assinar em nome de
  *    outro com as suas próprias chaves;
  * 3. os campos assinados são separados por "|", para "ab"+"c" e "a"+"bc" não
- *    darem o mesmo texto;
+ *    darem o mesmo texto. Para o separador funcionar, nenhum campo de texto
+ *    pode conter "|" (ver checkText): senão "A|motivo=x" + "y" e "A" + "x|motivo=y"
+ *    voltavam a dar o mesmo texto assinado;
  * 4. tem data (timestamp), para duas transações iguais não serem indistinguíveis;
  * 5. o texto assinado começa pelo nome da classe, para a assinatura de um tipo
  *    não servir para outro tipo com os mesmos valores.
@@ -49,9 +51,27 @@ public abstract class Transaction implements Serializable {
      * @param author DID do autor
      */
     protected Transaction(String author) {
-        this.author = author;
+        this.author = checkText(author, "autor");
         this.timestamp = System.currentTimeMillis();
         this.signature = "";
+    }
+
+    /**
+     * Valida um campo de texto antes de o guardar: não pode ser null nem conter
+     * o separador "|". As subclasses chamam-no no construtor para cada campo de texto.
+     *
+     * @param value valor do campo
+     * @param name nome do campo (para a mensagem de erro)
+     * @return o próprio valor, para se poder escrever this.x = checkText(x, "x")
+     */
+    protected static String checkText(String value, String name) {
+        if (value == null) {
+            throw new IllegalArgumentException("O campo " + name + " não pode ser null");
+        }
+        if (value.contains("|")) {
+            throw new IllegalArgumentException("O campo " + name + " não pode conter o separador |");
+        }
+        return value;
     }
 
     /**

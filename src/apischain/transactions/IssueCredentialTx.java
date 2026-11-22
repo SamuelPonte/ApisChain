@@ -43,12 +43,12 @@ public class IssueCredentialTx extends Transaction {
     public IssueCredentialTx(String author, String credentialId, String credentialType, String subject,
             String credentialHash, String subjectKey, double weightKg) {
         super(author);
-        this.credentialId = credentialId;
-        this.credentialType = credentialType;
-        this.subject = subject;
-        this.credentialHash = credentialHash;
+        this.credentialId = checkText(credentialId, "credencial");
+        this.credentialType = checkText(credentialType, "tipo");
+        this.subject = checkText(subject, "titular");
+        this.credentialHash = checkText(credentialHash, "hash");
         // null passa a "" para o texto assinado ser sempre o mesmo
-        this.subjectKey = (subjectKey == null) ? "" : subjectKey;
+        this.subjectKey = checkText((subjectKey == null) ? "" : subjectKey, "chave");
         this.weightKg = weightKg;
     }
 
