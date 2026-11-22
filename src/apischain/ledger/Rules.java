@@ -6,6 +6,7 @@
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::://
 package apischain.ledger;
 
+import apischain.identity.DigitalID;
 import apischain.transactions.Authority;
 import apischain.transactions.FraudAlertTx;
 import apischain.transactions.GenesisTx;
@@ -161,9 +162,13 @@ public class Rules {
         if (state.credentialExists(c.getCredentialId())) {
             throw new RuleException("Já existe uma credencial com o id " + c.getCredentialId());
         }
-        // 3. campos obrigatórios de cada tipo
-        if ((type.equals("REGISTO_APICULTOR") || type.equals("REGISTO_LOJA")) && c.getSubjectKey().isEmpty()) {
-            throw new RuleException("O registo de " + c.getSubject() + " tem de incluir a sua chave pública");
+        // 3. chave do titular: é o que dá a um DID o poder de assinar, por isso é a regra mais sensível
+        if (carriesKey(type)) {
+            checkSubjectKey(c, state);
+        } else if (!c.getSubjectKey().isEmpty()) {
+            // sem isto, um apicultor criava um "lote" com titular did:lab e a sua própria chave,
+            // e passava a assinar em nome do Laboratório
+            throw new RuleException("Uma credencial " + type + " não pode trazer chave pública");
         }
         if (type.equals("LOTE") && c.getWeightKg() <= 0) {
             throw new RuleException("Um lote tem de ter kg colhidos positivos");
@@ -171,6 +176,38 @@ public class Rules {
         // 4. a análise e o certificado referem-se a um lote que existe e não está revogado
         if (type.equals("ANALISE_LOTE") || type.equals("CERTIFICADO_ORIGEM")) {
             checkLot(c.getSubject(), state);
+        }
+    }
+
+    /**
+     * Tipos de credencial que registam a chave pública do titular na cadeia.
+     *
+     * @param type tipo da credencial
+     * @return true para REGISTO_APICULTOR e REGISTO_LOJA
+     */
+    public static boolean carriesKey(String type) {
+        return type.equals("REGISTO_APICULTOR") || type.equals("REGISTO_LOJA");
+    }
+
+    /**
+     * Regras da chave num registo de apicultor ou de loja:
+     * 1. tem de trazer a chave;
+     * 2. o DID do titular tem de ser o derivado dessa chave (DigitalID.createDid):
+     *    assim um DID nunca pode ficar com uma chave que não é a sua;
+     * 3. o titular ainda não pode ter chave na cadeia: um DID só é registado uma
+     *    vez (também evita ter REGISTO_APICULTOR e REGISTO_LOJA no mesmo DID).
+     *    Consequência: um DID revogado não volta a ser registado; o interveniente
+     *    cria chaves novas e recebe um DID novo.
+     */
+    private static void checkSubjectKey(IssueCredentialTx c, LedgerState state) throws RuleException {
+        if (c.getSubjectKey().isEmpty()) {
+            throw new RuleException("O registo de " + c.getSubject() + " tem de incluir a sua chave pública");
+        }
+        if (!c.getSubject().equals(DigitalID.createDid(c.getSubjectKey()))) {
+            throw new RuleException("O DID " + c.getSubject() + " não corresponde à chave pública do registo");
+        }
+        if (state.publicKeyOf(c.getSubject()) != null) {
+            throw new RuleException("O DID " + c.getSubject() + " já está registado na cadeia");
         }
     }
 

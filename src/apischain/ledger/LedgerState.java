@@ -101,8 +101,9 @@ public class LedgerState {
             }
         } else if (tx instanceof IssueCredentialTx c) {
             credentials.put(c.getCredentialId(), c);
-            // nos registos de apicultor e de loja, a cadeia fica a saber a chave do titular
-            if (!c.getSubjectKey().isEmpty()) {
+            // só nos registos de apicultor e de loja a cadeia fica a saber a chave do titular
+            // (as regras só aceitam chave nestes dois tipos; assim o estado fica coerente com elas)
+            if (Rules.carriesKey(c.getCredentialType())) {
                 publicKeys.put(c.getSubject(), c.getSubjectKey());
             }
         } else if (tx instanceof RevokeTx r) {
@@ -281,7 +282,9 @@ public class LedgerState {
         }
         // 2. procurar a embalagem desse lote que contém esse número
         for (PackTx p : packs) {
-            if (p.getLot().equals(lot) && p.containsJar(number)) {
+            // o código tem de ser EXATAMENTE o que a embalagem gera: sem isto, "LOTE-1-0137"
+            // e "LOTE-1-+137" eram o mesmo frasco 137 com outro texto, e a venda dupla passava
+            if (p.getLot().equals(lot) && p.containsJar(number) && jarId.equals(p.getJarId(number))) {
                 return p;
             }
         }

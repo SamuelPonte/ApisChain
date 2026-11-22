@@ -7,6 +7,7 @@ package apischain.test;
 
 import apischain.core.Block;
 import apischain.core.BlockChain;
+import apischain.identity.DigitalID;
 import apischain.ledger.LedgerState;
 import apischain.ledger.RuleException;
 import apischain.ledger.Rules;
@@ -29,14 +30,16 @@ import java.util.Arrays;
  */
 public class TesteRegras {
 
-    // DIDs fictícios
+    // DIDs das autoridades (vêm da génese, podem ter qualquer nome)
     static final String DGAV = "did:apis:dgav";
     static final String LAB = "did:apis:lab";
     static final String DOP = "did:apis:dop";
-    static final String MANUEL = "did:apis:manuel";   // apicultor
-    static final String ROSA = "did:apis:rosa";       // outro apicultor
-    static final String LOJA = "did:apis:loja-01";    // loja registada
-    static final String INTRUSA = "did:apis:loja-x";  // loja que nunca foi registada
+    // DIDs dos registados pela DGAV: derivados da chave pública (DigitalID.createDid),
+    // por isso só se calculam depois de gerar as chaves
+    static String MANUEL;   // apicultor
+    static String ROSA;     // outra apicultora
+    static String LOJA;     // loja registada
+    static String INTRUSA;  // loja que nunca foi registada
     static final String LOTE = "LOTE-2026-0042";
 
     static BlockChain chain = new BlockChain();
@@ -54,6 +57,10 @@ public class TesteRegras {
         rosa = SecurityUtils.generateKeyPair();
         loja = SecurityUtils.generateKeyPair();
         intrusa = SecurityUtils.generateKeyPair();
+        MANUEL = did(manuel);
+        ROSA = did(rosa);
+        LOJA = did(loja);
+        INTRUSA = did(intrusa);
 
         GenesisTx genese = new GenesisTx(DGAV, Arrays.asList(
                 new Authority(DGAV, "DGAV", SecurityUtils.keyToBase64(dgav.getPublic())),
@@ -87,6 +94,10 @@ public class TesteRegras {
         aceita("DGAV regista a loja", registo("LJ-01", "REGISTO_LOJA", LOJA, loja), dgav);
         rejeita("tipo de credencial desconhecido",
                 new IssueCredentialTx(DGAV, "X-1", "DIPLOMA", MANUEL, hash("x")), dgav);
+        rejeita("registo com um DID que não é o da chave",
+                new IssueCredentialTx(DGAV, "AP-0003", "REGISTO_APICULTOR", "did:apis:manuel",
+                        hash("AP-0003"), SecurityUtils.keyToBase64(intrusa.getPublic()), 0), dgav);
+        rejeita("segundo registo do mesmo DID (como loja)", registo("LJ-02", "REGISTO_LOJA", MANUEL, manuel), dgav);
         check("papel do Manuel é APICULTOR e a chave dele está na cadeia",
                 "APICULTOR".equals(state.roleOf(MANUEL)) && manuel.getPublic().equals(state.publicKeyOf(MANUEL)));
         check("papel da loja é LOJA", "LOJA".equals(state.roleOf(LOJA)));
@@ -95,6 +106,11 @@ public class TesteRegras {
         System.out.println("\n4. LOTE, ANÁLISE E CERTIFICADO");
         rejeita("loja a criar um lote", lote(LOTE, 340, LOJA), loja);
         rejeita("lote com 0 kg", lote(LOTE, 0, MANUEL), manuel);
+        // ataque da revisão do PR #17: um "lote" cujo titular é o Laboratório, com a chave do atacante
+        rejeita("lote com chave pública (tentar trocar a chave do Laboratório)",
+                new IssueCredentialTx(MANUEL, "LOTE-X", "LOTE", LAB, hash("x"),
+                        SecurityUtils.keyToBase64(intrusa.getPublic()), 100), manuel);
+        check("a chave do Laboratório continua a ser a da génese", lab.getPublic().equals(state.publicKeyOf(LAB)));
         aceita("Manuel cria o lote com 340 kg", lote(LOTE, 340, MANUEL), manuel);
         rejeita("análise de um lote que não existe",
                 new IssueCredentialTx(LAB, "AN-9999", "ANALISE_LOTE", "LOTE-9999", hash("an")), lab);
@@ -125,6 +141,9 @@ public class TesteRegras {
         rejeita("venda de um frasco que não existe", new SaleTx(LOJA, LOTE + "-999"), loja);
         rejeita("apicultor a vender", new SaleTx(MANUEL, LOTE + "-137"), manuel);
         aceita("loja vende o frasco 137", new SaleTx(LOJA, LOTE + "-137"), loja);
+        // ataque da revisão do PR #17: o mesmo frasco 137 escrito de outra forma
+        rejeita("venda do frasco 137 escrito com zero à esquerda (-0137)", new SaleTx(LOJA, LOTE + "-0137"), loja);
+        rejeita("venda do frasco 137 escrito com sinal (-+137)", new SaleTx(LOJA, LOTE + "-+137"), loja);
         check("frasco 137 vendido", state.isSold(LOTE + "-137") && !state.isSold(LOTE + "-138"));
         Transaction r = submeter(new SaleTx(LOJA, LOTE + "-137"), loja);
         check("segunda venda do 137 não entra e gera um alerta de fraude",
@@ -211,6 +230,10 @@ public class TesteRegras {
             check("rejeitada: " + descricao + " (erro inesperado: " + e + ")", false);
             return "";
         }
+    }
+
+    static String did(KeyPair chaves) {
+        return DigitalID.createDid(SecurityUtils.keyToBase64(chaves.getPublic()));
     }
 
     static IssueCredentialTx registo(String id, String tipo, String did, KeyPair chaves) {
