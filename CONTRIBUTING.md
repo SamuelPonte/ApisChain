@@ -7,7 +7,10 @@ Somos dois, por isso as regras são poucas.
 2. Cria uma branch a partir de `main`: `feat/3-estado-regras`, `docs/8-relatorio`, `fix/...`.
 3. Abre um pedido de integração (PR) com `Closes #3` na descrição.
 4. O outro elemento revê. A revisão serve sobretudo para conhecer o código do colega: a defesa é individual e sem IA.
-5. Integra com "Squash and merge" e apaga a branch.
+5. Integra com **"Create a merge commit"** (não usar "Squash and merge" nem "Rebase and merge"), como prefere o professor: o histórico mostra cada branch e os seus commits. Só depois apaga a branch.
+6. Se um PR partir da branch de outro PR ainda aberto, muda primeiro a base dele para `main` e só depois integra e apaga a branch de que ele parte (senão o GitHub fecha o PR dependente).
+
+Como os commits da branch ficam todos no histórico, cada commit deve compilar e ter uma mensagem que se perceba sozinha.
 
 `main` tem de compilar sempre e o teste de consola (`Run` no NetBeans) tem de passar.
 
