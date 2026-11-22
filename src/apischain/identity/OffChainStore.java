@@ -57,7 +57,11 @@ public class OffChainStore {
      * @param value novo valor
      */
     public void tamper(String id, String key, String value) {
-        credentials.get(id).tamperData(key, value);
+        Credential c = credentials.get(id);
+        if (c == null) {
+            throw new IllegalArgumentException("Não existe a credencial " + id);
+        }
+        c.tamperData(key, value);
     }
 
     /**

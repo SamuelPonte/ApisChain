@@ -43,13 +43,19 @@ public class Credential implements Serializable {
      * @param data dados (copiados; a ordem em que foram inseridos não importa)
      */
     public Credential(String id, CredentialType type, String issuer, String subject, Map<String, String> data) {
-        // 1. os separadores do texto assinado não podem aparecer nos valores
-        checkText(id);
-        checkText(issuer);
-        checkText(subject);
+        // 1. os separadores do texto assinado não podem aparecer nos campos
+        checkText(id, "id");
+        checkText(issuer, "emissor");
+        checkText(subject, "titular");
         for (Map.Entry<String, String> e : data.entrySet()) {
-            checkText(e.getKey());
-            checkText(e.getValue());
+            checkText(e.getKey(), "nome do dado");
+            // o "=" só é proibido no nome do dado: como os nomes não têm "=", o
+            // primeiro "=" de cada par separa sempre o nome do valor. Assim os
+            // valores podem ser hashes e chaves em Base64, que acabam em "="
+            if (e.getKey().contains("=")) {
+                throw new IllegalArgumentException("O nome do dado não pode conter =: " + e.getKey());
+            }
+            checkText(e.getValue(), "valor de " + e.getKey());
         }
         // 2. guardar os campos
         this.id = id;
@@ -64,14 +70,18 @@ public class Credential implements Serializable {
     }
 
     /**
-     * Recusa textos com os separadores usados em getDataToSign().
+     * Recusa textos vazios (null) ou com os separadores usados em getDataToSign().
      * Sem isto, ("a|b", "c") e ("a", "b|c") davam o mesmo texto assinado.
      *
      * @param txt texto a verificar
+     * @param name nome do campo, para a mensagem de erro
      */
-    private static void checkText(String txt) {
-        if (txt.contains("|") || txt.contains(";") || txt.contains("=")) {
-            throw new IllegalArgumentException("Os carateres | ; = não são permitidos: " + txt);
+    private static void checkText(String txt, String name) {
+        if (txt == null) {
+            throw new IllegalArgumentException("O campo " + name + " não pode ser null");
+        }
+        if (txt.contains("|") || txt.contains(";")) {
+            throw new IllegalArgumentException("O campo " + name + " não pode conter | nem ;: " + txt);
         }
     }
 

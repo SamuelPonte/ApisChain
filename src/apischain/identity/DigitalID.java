@@ -23,8 +23,13 @@ import java.security.PublicKey;
  * assinatura do próprio sobre esses dados.
  *
  * A chave privada NUNCA fica neste objeto: fica no ficheiro nome.priv, cifrada
- * com a palavra-passe do dono. Assim o DigitalID pode ser copiado, gravado e
- * publicado sem risco.
+ * com a palavra-passe do dono.
+ *
+ * RGPD: o DigitalID tem o nome do interveniente, por isso fica só no computador
+ * do dono (ficheiro nome.id) e NUNCA vai para a cadeia. Na cadeia entram apenas
+ * o DID e a chave pública, através da IssueCredentialTx do registo (subject e
+ * subjectKey), que é o que o LedgerState lê. Os nomes das autoridades (DGAV,
+ * Laboratório, DOP) não são dados pessoais.
  *
  * Diferenças face ao DigitalID do professor:
  * 1. tem papel (Role), porque na ApisChain cada interveniente faz coisas diferentes;
@@ -132,12 +137,17 @@ public class DigitalID implements Serializable {
         // 1. validar o nome e criar a pasta se ainda não existir
         String base = getBase(name, folder);
         new File(folder).mkdirs();
-        // 2. gerar o par de chaves RSA
+        // 2. não escrever por cima de um interveniente que já existe: as chaves
+        //    novas deixavam de corresponder ao DID que já está na cadeia
+        if (new File(base + ".id").exists()) {
+            throw new Exception("Já existe um interveniente com o nome " + name + ": use load");
+        }
+        // 3. gerar o par de chaves RSA
         KeyPair keys = SecurityUtils.generateKeyPair();
-        // 3. gravar as chaves (a privada fica cifrada com a palavra-passe)
+        // 4. gravar as chaves (a privada fica cifrada com a palavra-passe)
         SecurityUtils.savePublicKey(keys.getPublic(), base);
         SecurityUtils.savePrivateKey(keys.getPrivate(), base, password);
-        // 4. criar a identidade assinada e gravá-la
+        // 5. criar a identidade assinada e gravá-la
         DigitalID id = new DigitalID(name, role, keys.getPublic(), keys.getPrivate());
         try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(base + ".id"))) {
             out.writeObject(id);

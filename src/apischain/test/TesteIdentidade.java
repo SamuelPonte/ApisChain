@@ -82,6 +82,13 @@ public class TesteIdentidade {
                 lancaExcecao(() -> DigitalID.create("DGAV.priv", Role.LOJA, "x", keys)));
         check("nome com acentos é aceite",
                 DigitalID.create("Laboratório", Role.LAB, "x", keys).getName().equals("Laboratório"));
+        // criar outra vez com o mesmo nome perdia a identidade (chaves novas, DID diferente)
+        String didAntes = DigitalID.load("Apicultor-0001", keys).getDid();
+        check("criar um interveniente que já existe é recusado",
+                lancaExcecao(() -> DigitalID.create("Apicultor-0001", Role.APICULTOR, "outra", keys)));
+        check("e a identidade e a chave privada antigas continuam a funcionar",
+                DigitalID.load("Apicultor-0001", keys).getDid().equals(didAntes)
+                && DigitalID.loadPrivateKey("Apicultor-0001", "mel123", keys) != null);
 
         // ------------------------------------------------------------------
         System.out.println("\n3. ATAQUE: TROCAR A CHAVE PÚBLICA DE UM INTERVENIENTE");
@@ -105,8 +112,21 @@ public class TesteIdentidade {
         check("assinatura válida com a chave do Laboratório", analise.isSignatureValid(lab.getPublicKey()));
         check("assinatura inválida com a chave de outro interveniente",
                 !analise.isSignatureValid(apicultor.getPublicKey()));
-        check("os carateres | ; = são recusados nos dados",
-                lancaExcecao(() -> new Credential("X", CredentialType.LOTE, "a", "b", Map.of("kg", "340|999"))));
+        check("os carateres | e ; são recusados nos valores",
+                lancaExcecao(() -> new Credential("X", CredentialType.LOTE, "a", "b", Map.of("kg", "340|999")))
+                && lancaExcecao(() -> new Credential("X", CredentialType.LOTE, "a", "b", Map.of("kg", "340;999"))));
+        check("o = é recusado no nome do dado",
+                lancaExcecao(() -> new Credential("X", CredentialType.LOTE, "a", "b", Map.of("kg=1", "340"))));
+        // um hash em Base64 acaba em "=" e tem de poder ser guardado como valor
+        Credential comHash = new Credential("X", CredentialType.LOTE, "a", "b",
+                Map.of("hashAnalise", SecurityUtils.getHash("análise")));
+        check("valores em Base64 (com =) são aceites", comHash.getData("hashAnalise").endsWith("="));
+        try {
+            new Credential("X", CredentialType.LOTE, null, "b", Map.of());
+            check("campo null é recusado com mensagem clara", false);
+        } catch (IllegalArgumentException e) {
+            check("campo null é recusado com mensagem clara (" + e.getMessage() + ")", true);
+        }
 
         // a ordem em que os dados são inseridos não muda o texto assinado
         Map<String, String> invertidos = new LinkedHashMap<>();
@@ -144,6 +164,12 @@ public class TesteIdentidade {
                 !store.get("AN-0042").getHash().equals(hashNaCadeia));
         check("a assinatura do Laboratório deixa de ser válida",
                 !store.get("AN-0042").isSignatureValid(lab.getPublicKey()));
+        try {
+            store.tamper("NAO-EXISTE", "x", "y");
+            check("alterar uma credencial que não existe dá erro claro", false);
+        } catch (IllegalArgumentException e) {
+            check("alterar uma credencial que não existe dá erro claro (" + e.getMessage() + ")", true);
+        }
 
         // ------------------------------------------------------------------
         System.out.println();
