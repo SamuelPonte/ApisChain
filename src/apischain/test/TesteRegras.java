@@ -90,8 +90,12 @@ public class TesteRegras {
         aceita("DGAV regista o apicultor Manuel", registo("AP-0001", "REGISTO_APICULTOR", MANUEL, manuel), dgav);
         rejeita("credencial com id repetido", registo("AP-0001", "REGISTO_APICULTOR", ROSA, rosa), dgav);
         aceita("DGAV regista a apicultora Rosa", registo("AP-0002", "REGISTO_APICULTOR", ROSA, rosa), dgav);
+        rejeita("apiário de um apicultor que não está registado",
+                new IssueCredentialTx(DGAV, "APIARIO-118", "REGISTO_APIARIO", INTRUSA, hash("apiário")), dgav);
         aceita("DGAV regista o apiário 117", new IssueCredentialTx(DGAV, "APIARIO-117", "REGISTO_APIARIO", MANUEL, hash("apiário")), dgav);
         aceita("DGAV regista a loja", registo("LJ-01", "REGISTO_LOJA", LOJA, loja), dgav);
+        rejeita("apiário em nome de uma loja",
+                new IssueCredentialTx(DGAV, "APIARIO-118", "REGISTO_APIARIO", LOJA, hash("apiário")), dgav);
         rejeita("tipo de credencial desconhecido",
                 new IssueCredentialTx(DGAV, "X-1", "DIPLOMA", MANUEL, hash("x")), dgav);
         rejeita("registo com um DID que não é o da chave",
@@ -111,6 +115,9 @@ public class TesteRegras {
                 new IssueCredentialTx(MANUEL, "LOTE-X", "LOTE", LAB, hash("x"),
                         SecurityUtils.keyToBase64(intrusa.getPublic()), 100), manuel);
         check("a chave do Laboratório continua a ser a da génese", lab.getPublic().equals(state.publicKeyOf(LAB)));
+        rejeita("lote de um apiário que não existe", lote(LOTE, 340, MANUEL, "APIARIO-9999"), manuel);
+        rejeita("lote cujo apiário é outra credencial (o registo do apicultor)", lote(LOTE, 340, MANUEL, "AP-0001"), manuel);
+        rejeita("Rosa a criar um lote no apiário do Manuel", lote(LOTE, 340, ROSA), rosa);
         aceita("Manuel cria o lote com 340 kg", lote(LOTE, 340, MANUEL), manuel);
         rejeita("análise de um lote que não existe",
                 new IssueCredentialTx(LAB, "AN-9999", "ANALISE_LOTE", "LOTE-9999", hash("an")), lab);
@@ -163,6 +170,8 @@ public class TesteRegras {
         rejeita("loja revogada a vender", new SaleTx(LOJA, LOTE + "-138"), loja);
         aceita("DGAV revoga o lote", new RevokeTx(DGAV, LOTE, "adulteração detetada"), dgav);
         rejeita("embalar um lote revogado", new PackTx(MANUEL, LOTE, 472, 472, 0.1), manuel);
+        aceita("DGAV revoga o apiário 117", new RevokeTx(DGAV, "APIARIO-117", "apiário encerrado"), dgav);
+        rejeita("lote de um apiário revogado", lote("LOTE-2026-0043", 10, MANUEL), manuel);
 
         // ------------------------------------------------------------------
         System.out.println("\n8. O ESTADO CALCULADO DE NOVO A PARTIR DA CADEIA É O MESMO");
@@ -241,7 +250,11 @@ public class TesteRegras {
     }
 
     static IssueCredentialTx lote(String id, double kg, String autor) {
-        return new IssueCredentialTx(autor, id, "LOTE", "APIARIO-117", hash(id), "", kg);
+        return lote(id, kg, autor, "APIARIO-117");
+    }
+
+    static IssueCredentialTx lote(String id, double kg, String autor, String apiario) {
+        return new IssueCredentialTx(autor, id, "LOTE", apiario, hash(id), "", kg);
     }
 
     static String hash(String txt) {
