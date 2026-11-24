@@ -6,6 +6,8 @@
 package apischain.test;
 
 import apischain.consensus.Node;
+import apischain.core.Block;
+import apischain.core.MerkleTree;
 import apischain.ledger.RuleException;
 import apischain.service.ApisChainService;
 import apischain.service.DemoData;
@@ -14,6 +16,7 @@ import apischain.service.VerificationResult.Level;
 import apischain.transactions.FraudAlertTx;
 import apischain.transactions.Transaction;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -115,7 +118,7 @@ public class TesteDemo {
         check("os 4 nós têm cadeias iguais e válidas", iguais);
 
         // ------------------------------------------------------------------
-        // Os passos 8 a 11 usam uma pasta temporária: estragam o cenário de propósito
+        // Os passos 8 a 14 usam pastas temporárias: estragam o cenário de propósito
         DemoData limpa = DemoData.load(Files.createTempDirectory("apischain-demo").toString());
         ApisChainService sl = limpa.getService();
         String lt = limpa.getBaseLot();
@@ -178,6 +181,51 @@ public class TesteDemo {
         check("FALHA com uma mensagem que se percebe",
                 r.getLevel() == Level.FALHA && r.toString().contains("corrompida no bloco #1")
                 && r.getChecks().size() == 1);
+
+        // ------------------------------------------------------------------
+        System.out.println("\n12. ADULTERAÇÃO DETETADA PELO LABORATÓRIO");
+        String pasta2 = Files.createTempDirectory("apischain-demo").toString();
+        DemoData d2 = DemoData.load(pasta2);
+        ApisChainService s2 = d2.getService();
+        String l2 = d2.getBaseLot();
+        String ma = s2.issueAnalysis(d2.getLab(), l2, Map.of("origemFloral", "urze 30%", "adulteracao", "detetada"));
+        r = s2.verifyJar(l2 + "-138");
+        System.out.println(r);
+        check("uma análise íntegra que detetou adulteração: FALHA",
+                r.getLevel() == Level.FALHA && r.toString().contains(ma + ": ADULTERAÇÃO"));
+        s2.revoke(d2.getDgav(), ma, "amostra trocada");
+        check("revogada essa análise (há outra em vigor, sem adulteração): OK",
+                s2.verifyJar(l2 + "-138").getLevel() == Level.OK);
+
+        // ------------------------------------------------------------------
+        System.out.println("\n13. BLOCO COM VÁRIAS TRANSAÇÕES (ÁRVORE DE MERKLE)");
+        Block cinco = null;
+        for (Block b : s2.getChain().getChain()) {
+            if (b.getTransactions().size() == 5) {
+                cinco = b;
+            }
+        }
+        check("o cenário base tem um bloco com 5 vendas", cinco != null);
+        if (cinco != null) {
+            String tx = cinco.getTransactions().get(3);
+            List<String> prova = cinco.getMerkleTree().getProof(tx);
+            check("prova da 4.ª venda com 3 irmãos e a raiz do bloco",
+                    prova.size() == 4 && MerkleTree.isProofValid(tx, prova)
+                    && prova.get(3).equals(cinco.getMerkleRoot()));
+        }
+
+        // ------------------------------------------------------------------
+        System.out.println("\n14. ABRIR DEPOIS DE FECHAR COM UM NÓ DESLIGADO");
+        s2.getNetwork().setOnline(d2.getNodes().get(3), false);
+        s2.sellJar(d2.getShop(), l2 + "-140");
+        DemoData d3 = DemoData.load(pasta2);
+        ultimo = d3.getNodes().get(0).getChain().getLastBlockHash();
+        iguais = true;
+        for (Node n : d3.getNodes()) {
+            iguais = iguais && n.getChain().getLastBlockHash().equals(ultimo);
+        }
+        check("ao abrir, o N4 recupera o bloco em falta", iguais);
+        check("e o serviço vê a venda feita enquanto ele estava desligado", d3.getService().getState().isSold(l2 + "-140"));
 
         // ------------------------------------------------------------------
         System.out.println();
