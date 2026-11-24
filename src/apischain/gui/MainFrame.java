@@ -78,6 +78,15 @@ public class MainFrame extends JFrame {
         // 2. painéis da issue #7 (André): Apicultor, Loja e Consumidor, conforme o
         //    papel, e os separadores comuns Cadeia, Merkle e Rede. Acrescentam-se
         //    aqui com tabs.addTab(...), estendendo BasePanel.
+        if (role == Role.APICULTOR) {
+            tabs.addTab("Apicultor", new BeekeeperPanel(service, actor));
+        } else if (role == Role.LOJA) {
+            tabs.addTab("Loja", new ShopPanel(service, actor));
+        }
+        tabs.addTab("Consumidor", new ConsumerPanel(service));
+        tabs.addTab("Cadeia", new ChainPanel(service));
+        tabs.addTab("Merkle", new MerkleTreePanel(service));
+        tabs.addTab("Rede", new NetworkPanel(service));
 
         // 3. enquanto não houver painel para este papel, um aviso
         if (tabs.getTabCount() == 0) {
