@@ -13,6 +13,7 @@ import apischain.service.VerificationResult;
 import apischain.service.VerificationResult.Level;
 import apischain.transactions.FraudAlertTx;
 import apischain.transactions.Transaction;
+import java.nio.file.Files;
 import java.util.Map;
 
 /**
@@ -112,6 +113,71 @@ public class TesteDemo {
             iguais = iguais && n.getChain().isValid() && n.getChain().getLastBlockHash().equals(ultimo);
         }
         check("os 4 nós têm cadeias iguais e válidas", iguais);
+
+        // ------------------------------------------------------------------
+        // Os passos 8 a 11 usam uma pasta temporária: estragam o cenário de propósito
+        DemoData limpa = DemoData.load(Files.createTempDirectory("apischain-demo").toString());
+        ApisChainService sl = limpa.getService();
+        String lt = limpa.getBaseLot();
+
+        System.out.println("\n8. VERIFICAR ENQUANTO OUTRA THREAD ESCREVE NA CADEIA");
+        // uma thread vende frascos e desliga e volta a ligar o N4 (a sincronização também
+        // escreve na cadeia); ao mesmo tempo o consumidor verifica um frasco bom
+        Exception[] erro = new Exception[1];
+        Thread vendedor = new Thread(() -> {
+            try {
+                for (int i = 1; i <= 15; i++) {
+                    limpa.getNetwork().setOnline(limpa.getNodes().get(3), false);
+                    sl.sellJar(limpa.getShop(), lt + "-" + i);
+                    limpa.getNetwork().setOnline(limpa.getNodes().get(3), true);
+                }
+            } catch (Exception e) {
+                erro[0] = e;
+            }
+        });
+        vendedor.start();
+        int leituras = 0;
+        int leiturasMas = 0;
+        while (vendedor.isAlive()) {
+            leituras++;
+            if (sl.verifyJar(lt + "-138").getLevel() != Level.OK) {
+                leiturasMas++;
+            }
+            // pausa curta: sem ela este ciclo ocupava o bloqueio e quase não deixava vender
+            Thread.sleep(1);
+        }
+        vendedor.join();
+        check(leituras + " leituras, " + leiturasMas + " falharam (tem de ser 0)",
+                leituras > 0 && leiturasMas == 0 && erro[0] == null);
+
+        // ------------------------------------------------------------------
+        System.out.println("\n9. ANÁLISE REVOGADA E SUBSTITUÍDA");
+        String an1 = sl.getState().getCredentials("ANALISE_LOTE", lt).get(0).getCredentialId();
+        sl.revoke(limpa.getDgav(), an1, "erro na amostra");
+        check("única análise revogada: FALHA", sl.verifyJar(lt + "-138").getLevel() == Level.FALHA);
+        sl.issueAnalysis(limpa.getLab(), lt, Map.of("origemFloral", "urze 60%", "humidade", "17.0%"));
+        r = sl.verifyJar(lt + "-138");
+        System.out.println(r);
+        check("com uma análise nova e válida: OK, e a revogada aparece como informação",
+                r.getLevel() == Level.OK && r.toString().contains(an1 + ": revogação registada, já há substituição"));
+
+        // ------------------------------------------------------------------
+        System.out.println("\n10. REGISTO DO APICULTOR REVOGADO");
+        String registo = sl.getState().getCredentials("REGISTO_APICULTOR", limpa.getBeekeeper().getDid()).get(0)
+                .getCredentialId();
+        sl.revoke(limpa.getDgav(), registo, "licença suspensa");
+        r = sl.verifyJar(lt + "-138");
+        System.out.println(r);
+        check("AVISO, e o texto não mostra null", r.getLevel() == Level.AVISO && !r.toString().contains("null"));
+
+        // ------------------------------------------------------------------
+        System.out.println("\n11. CÓPIA DA CADEIA ADULTERADA (N4)");
+        limpa.getNodes().get(3).getChain().get(1).tamperTransaction(0, "adulterada");
+        r = sl.verifyJar(lt + "-138");
+        System.out.println(r);
+        check("FALHA com uma mensagem que se percebe",
+                r.getLevel() == Level.FALHA && r.toString().contains("corrompida no bloco #1")
+                && r.getChecks().size() == 1);
 
         // ------------------------------------------------------------------
         System.out.println();

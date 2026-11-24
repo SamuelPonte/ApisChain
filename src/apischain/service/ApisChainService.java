@@ -70,7 +70,11 @@ public class ApisChainService {
      * Cadeia vista por um nó ligado (de preferência o N4, que não é validador
      * e representa quem só consulta, como o consumidor).
      *
-     * @return cópia da cadeia de um nó ligado
+     * Devolve a cadeia do PRÓPRIO nó, não uma cópia: outra thread pode estar a
+     * acrescentar-lhe blocos. Quem a percorrer tem de o fazer dentro de
+     * synchronized (getNetwork()), que é o bloqueio usado por quem escreve.
+     *
+     * @return cadeia de um nó ligado
      * @throws Exception se não houver nós ligados
      */
     public BlockChain getChain() throws Exception {
@@ -87,11 +91,28 @@ public class ApisChainService {
     }
 
     /**
-     * @return estado atual, calculado a partir da cadeia
-     * @throws Exception se a cadeia não se conseguir ler
+     * Estado atual, calculado a partir da cadeia. O bloqueio da rede impede que
+     * entrem blocos (submit) ou que um nó sincronize (setOnline) a meio da leitura.
+     *
+     * @return estado atual
+     * @throws Exception se a cadeia estiver corrompida ou não houver nós ligados
      */
     public LedgerState getState() throws Exception {
-        return new LedgerState(getChain());
+        synchronized (network) {
+            return readState(getChain());
+        }
+    }
+
+    /**
+     * Verifica a integridade da cadeia ANTES de a ler: numa cadeia adulterada as
+     * transações podem nem se conseguir ler, e o erro não se percebia.
+     */
+    private static LedgerState readState(BlockChain chain) throws Exception {
+        int invalid = chain.getInvalidIndex();
+        if (invalid >= 0) {
+            throw new Exception("a cópia da cadeia está corrompida no bloco #" + invalid);
+        }
+        return new LedgerState(chain);
     }
 
     public LocalNetwork getNetwork() {
@@ -237,53 +258,63 @@ public class ApisChainService {
      * Verifica um frasco do princípio ao fim, sem confiar em ninguém: só na
      * cadeia (cópia do nó N4) e nas assinaturas.
      *
+     * Só lê, mas é synchronized para não apanhar uma operação a meio (a transação
+     * já na cadeia e a credencial ainda por guardar fora dela), e bloqueia também
+     * a rede, porque ligar um nó escreve na cadeia dele sem passar por esta classe.
+     *
      * @param jarId código do frasco (lido do QR)
      * @return resultado com o nível (OK, AVISO, FALHA) e as verificações feitas
      */
-    public VerificationResult verifyJar(String jarId) {
+    public synchronized VerificationResult verifyJar(String jarId) {
         VerificationResult r = new VerificationResult(jarId);
         try {
-            BlockChain chain = getChain();
-            LedgerState state = new LedgerState(chain);
-            // 1. a cópia da cadeia está íntegra?
-            if (!chain.isValid()) {
-                r.fail("a cópia da cadeia está corrompida no bloco #" + chain.getInvalidIndex());
-            }
-            // 2. o frasco existe? (foi embalado por um apicultor)
-            PackTx pack = state.findPack(jarId);
-            if (pack == null) {
-                r.fail("frasco desconhecido na cadeia: QR falso ou mal lido");
-                return r;
-            }
-            checkPack(r, chain, state, pack);
-            // 3. o lote
-            String lotId = pack.getLot();
-            IssueCredentialTx lot = state.getCredential(lotId);
-            checkCredential(r, state, lot, "lote");
-            if (lot != null && state.roleOf(lot.getAuthor()) == null) {
-                r.warn("o registo do apicultor " + lot.getAuthor() + " foi revogado pela DGAV");
-            }
-            // 4. análises e certificados do lote (pode haver mais do que um)
-            checkAll(r, state, state.getCredentials("ANALISE_LOTE", lotId), "análise",
-                    "o lote não tem análise do Laboratório");
-            checkAll(r, state, state.getCredentials("CERTIFICADO_ORIGEM", lotId), "certificado de origem",
-                    "o lote não tem certificado de origem DOP");
-            // 5. alertas de fraude sobre o frasco
-            List<FraudAlertTx> alerts = state.getAlerts(jarId);
-            for (FraudAlertTx a : alerts) {
-                r.fail("ALERTA_FRAUDE: " + a.getReason());
-            }
-            // 6. venda (informação)
-            SaleTx sale = state.getSale(jarId);
-            if (sale == null) {
-                r.ok("ainda não foi vendido");
-            } else if (alerts.isEmpty()) {
-                r.ok("vendido uma vez, pela loja " + sale.getShop());
+            synchronized (network) {
+                checkJar(r, jarId);
             }
         } catch (Exception e) {
             r.fail("não foi possível verificar: " + e.getMessage());
         }
         return r;
+    }
+
+    /**
+     * As verificações de um frasco, por ordem.
+     */
+    private void checkJar(VerificationResult r, String jarId) throws Exception {
+        // 1. a cópia da cadeia está íntegra? (readState lança exceção se não estiver)
+        BlockChain chain = getChain();
+        LedgerState state = readState(chain);
+        // 2. o frasco existe? (foi embalado por um apicultor)
+        PackTx pack = state.findPack(jarId);
+        if (pack == null) {
+            r.fail("frasco desconhecido na cadeia: QR falso ou mal lido");
+            return;
+        }
+        checkPack(r, chain, state, pack);
+        // 3. o lote
+        String lotId = pack.getLot();
+        IssueCredentialTx lot = state.getCredential(lotId);
+        checkCredential(r, state, lot, "lote");
+        if (lot != null && state.roleOf(lot.getAuthor()) == null) {
+            r.warn("o registo do apicultor " + lot.getAuthor() + " foi revogado pela DGAV");
+        }
+        // 4. análises e certificados do lote (pode haver mais do que um)
+        checkAll(r, state, state.getCredentials("ANALISE_LOTE", lotId), "análise",
+                "o lote não tem análise do Laboratório");
+        checkAll(r, state, state.getCredentials("CERTIFICADO_ORIGEM", lotId), "certificado de origem",
+                "o lote não tem certificado de origem DOP");
+        // 5. alertas de fraude sobre o frasco
+        List<FraudAlertTx> alerts = state.getAlerts(jarId);
+        for (FraudAlertTx a : alerts) {
+            r.fail("ALERTA_FRAUDE: " + a.getReason());
+        }
+        // 6. venda (informação)
+        SaleTx sale = state.getSale(jarId);
+        if (sale == null) {
+            r.ok("ainda não foi vendido");
+        } else if (alerts.isEmpty()) {
+            r.ok("vendido uma vez, pela loja " + sale.getShop());
+        }
     }
 
     /**
@@ -318,15 +349,30 @@ public class ApisChainService {
     }
 
     /**
-     * Verifica uma lista de credenciais do mesmo tipo; se estiver vazia, é um aviso.
+     * Verifica as credenciais do mesmo tipo de um lote. Se não houver nenhuma, é
+     * um aviso. Uma credencial revogada só é FALHA se não sobrar nenhuma por
+     * revogar: se o emissor emitiu outra, o erro foi corrigido e a revogada
+     * aparece só como informação. As que sobram são verificadas por completo.
      */
     private void checkAll(VerificationResult r, LedgerState state, List<IssueCredentialTx> list,
             String label, String missing) {
         if (list.isEmpty()) {
             r.warn(missing);
         }
+        // 1. sobra alguma por revogar?
+        boolean replaced = false;
         for (IssueCredentialTx c : list) {
-            checkCredential(r, state, c, label);
+            if (!state.isRevoked(c.getCredentialId())) {
+                replaced = true;
+            }
+        }
+        // 2. verificar cada uma
+        for (IssueCredentialTx c : list) {
+            if (replaced && state.isRevoked(c.getCredentialId())) {
+                r.ok(label + " " + c.getCredentialId() + ": revogação registada, já há substituição em vigor");
+            } else {
+                checkCredential(r, state, c, label);
+            }
         }
     }
 
@@ -367,7 +413,9 @@ public class ApisChainService {
             r.fail(label + " " + id + ": a assinatura não é do emissor " + c.getIssuer());
             return;
         }
-        r.ok(label + " " + id + ": assinatura de " + state.roleOf(c.getIssuer())
+        // um emissor com o registo revogado já não tem papel (roleOf devolve null)
+        String role = state.roleOf(c.getIssuer());
+        r.ok(label + " " + id + ": assinatura de " + (role == null ? c.getIssuer() : role)
                 + " válida e hash igual ao ancorado " + c.getData());
     }
 

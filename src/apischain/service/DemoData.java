@@ -26,7 +26,7 @@ import java.util.Map;
  * load(pasta) prepara tudo o que a demonstração precisa:
  * 1. as identidades (chaves em pasta/keys), criadas na primeira vez e
  *    carregadas nas seguintes;
- * 2. os quatro nós (N1 DGAV, N2 Laboratório, N3 DOP, N4 só de leitura), cada
+ * 2. os quatro nós (N1 DGAV, N2 Laboratório, N3 DOP, N4 não validador), cada
  *    um com a sua cópia da cadeia em pasta/N1, pasta/N2, ...;
  * 3. o armazém fora da cadeia (pasta/offchain.dat);
  * 4. se a cadeia estiver vazia: o bloco de génese e o cenário base (apicultor,
