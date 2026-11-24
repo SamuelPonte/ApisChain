@@ -94,7 +94,11 @@ public class TesteConsenso {
         IssueCredentialTx regLoja = new IssueCredentialTx(did(dgav), "LJ-0001", "REGISTO_LOJA",
                 did(loja), "hash-lj", SecurityUtils.keyToBase64(loja.getPublic()), 0);
         regLoja.sign(dgav.getPrivate());
-        Block b2 = rede.submit(regLoja);
+        // o apiário vai no mesmo bloco (as regras exigem que o lote saia de um apiário registado)
+        IssueCredentialTx apiario = new IssueCredentialTx(did(dgav), "APIARIO-117", "REGISTO_APIARIO",
+                did(apicultor), "hash-apiario");
+        apiario.sign(dgav.getPrivate());
+        Block b2 = rede.submit(Arrays.asList(regLoja, apiario));
         IssueCredentialTx lote = new IssueCredentialTx(did(apicultor), "LOTE-2026-0042", "LOTE",
                 "APIARIO-117", "hash-lote", "", 100);
         lote.sign(apicultor.getPrivate());

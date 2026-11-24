@@ -173,7 +173,14 @@ public class Rules {
         if (type.equals("LOTE") && c.getWeightKg() <= 0) {
             throw new RuleException("Um lote tem de ter kg colhidos positivos");
         }
-        // 4. a análise e o certificado referem-se a um lote que existe e não está revogado
+        // 4. origem: o apiário é de um apicultor registado e o lote sai de um apiário do próprio
+        if (type.equals("REGISTO_APIARIO") && !LedgerState.APICULTOR.equals(state.roleOf(c.getSubject()))) {
+            throw new RuleException("O apiário tem de ser de um apicultor registado e não revogado: " + c.getSubject());
+        }
+        if (type.equals("LOTE")) {
+            checkApiary(c, state);
+        }
+        // 5. a análise e o certificado referem-se a um lote que existe e não está revogado
         if (type.equals("ANALISE_LOTE") || type.equals("CERTIFICADO_ORIGEM")) {
             checkLot(c.getSubject(), state);
         }
@@ -208,6 +215,25 @@ public class Rules {
         }
         if (state.publicKeyOf(c.getSubject()) != null) {
             throw new RuleException("O DID " + c.getSubject() + " já está registado na cadeia");
+        }
+    }
+
+    /**
+     * O apiário de onde sai um lote existe, não está revogado e é do apicultor
+     * que cria o lote. Sem isto a cadeia certificava mel de uma origem inventada.
+     */
+    private static void checkApiary(IssueCredentialTx lot, LedgerState state) throws RuleException {
+        String apiaryId = lot.getSubject();
+        IssueCredentialTx apiary = state.getCredential(apiaryId);
+        if (apiary == null || !apiary.getCredentialType().equals("REGISTO_APIARIO")) {
+            throw new RuleException("O apiário " + apiaryId + " não existe");
+        }
+        if (state.isRevoked(apiaryId)) {
+            throw new RuleException("O apiário " + apiaryId + " foi revogado");
+        }
+        // o titular do registo do apiário é o apicultor dono dele
+        if (!apiary.getSubject().equals(lot.getAuthor())) {
+            throw new RuleException("O apiário " + apiaryId + " não é do apicultor que cria o lote");
         }
     }
 
