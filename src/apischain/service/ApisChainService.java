@@ -24,6 +24,7 @@ import apischain.transactions.SaleTx;
 import apischain.transactions.Transaction;
 import java.security.PublicKey;
 import java.time.Year;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,9 @@ import java.util.Map;
  * chamam a partir de threads (para não bloquear o ecrã).
  */
 public class ApisChainService {
+
+    // valor do dado "adulteracao" de uma análise que não encontrou adulteração
+    public static final String NOT_DETECTED = "não detetada";
 
     private final LocalNetwork network;  // rede de nós (PoC: todos no mesmo programa)
     private final OffChainStore offChain; // credenciais completas, fora da cadeia
@@ -250,6 +254,29 @@ public class ApisChainService {
         return Transaction.fromBase64(b.getTransactions().get(0));
     }
 
+    /**
+     * A loja regista várias vendas num só bloco (por exemplo, as vendas do dia).
+     * Entram todas ou nenhuma. Um bloco com várias transações mostra a árvore de
+     * Merkle a sério: com uma só, a árvore é apenas a raiz.
+     *
+     * @param jarIds códigos dos frascos
+     * @return as transações que entraram, pela mesma ordem (SaleTx ou FraudAlertTx)
+     */
+    public synchronized List<Transaction> sellJars(Actor shop, List<String> jarIds) throws Exception {
+        List<Transaction> txs = new ArrayList<>();
+        for (String jarId : jarIds) {
+            SaleTx tx = new SaleTx(shop.getDid(), jarId);
+            tx.sign(shop.getKey());
+            txs.add(tx);
+        }
+        Block b = network.submit(txs);
+        List<Transaction> result = new ArrayList<>();
+        for (String txt : b.getTransactions()) {
+            result.add(Transaction.fromBase64(txt));
+        }
+        return result;
+    }
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     //::  VERIFICAÇÃO DO FRASCO (CONSUMIDOR)                                 ::
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -301,6 +328,7 @@ public class ApisChainService {
         // 4. análises e certificados do lote (pode haver mais do que um)
         checkAll(r, state, state.getCredentials("ANALISE_LOTE", lotId), "análise",
                 "o lote não tem análise do Laboratório");
+        checkAdulteration(r, state, lotId);
         checkAll(r, state, state.getCredentials("CERTIFICADO_ORIGEM", lotId), "certificado de origem",
                 "o lote não tem certificado de origem DOP");
         // 5. alertas de fraude sobre o frasco
@@ -346,6 +374,24 @@ public class ApisChainService {
             }
         }
         r.fail("a embalagem não foi encontrada em nenhum bloco");
+    }
+
+    /**
+     * Uma análise pode estar íntegra e bem assinada e dizer que o mel é
+     * adulterado: basta uma em vigor para o frasco falhar. Uma análise sem o
+     * dado "adulteracao" não diz nada sobre isso.
+     */
+    private void checkAdulteration(VerificationResult r, LedgerState state, String lotId) {
+        for (IssueCredentialTx tx : state.getCredentials("ANALISE_LOTE", lotId)) {
+            Credential c = offChain.get(tx.getCredentialId());
+            if (c == null || state.isRevoked(tx.getCredentialId())) {
+                continue;  // já tratada em checkAll
+            }
+            String value = c.getData("adulteracao");
+            if (value != null && !value.equalsIgnoreCase(NOT_DETECTED)) {
+                r.fail("análise " + tx.getCredentialId() + ": ADULTERAÇÃO " + value + " pelo Laboratório");
+            }
+        }
     }
 
     /**

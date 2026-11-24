@@ -30,7 +30,8 @@ import java.util.Map;
  *    um com a sua cópia da cadeia em pasta/N1, pasta/N2, ...;
  * 3. o armazém fora da cadeia (pasta/offchain.dat);
  * 4. se a cadeia estiver vazia: o bloco de génese e o cenário base (apicultor,
- *    apiário, loja, lote de 340 kg, análise, certificado, 450 frascos e uma venda).
+ *    apiário, loja, lote de 340 kg, análise, certificado, 450 frascos, uma venda
+ *    e um bloco com cinco vendas).
  *
  * Correr duas vezes seguidas dá o mesmo resultado: a segunda vez carrega tudo
  * dos ficheiros em vez de criar de novo.
@@ -107,12 +108,30 @@ public class DemoData {
         for (Node n : nodes) {
             network.addNode(n);
         }
+        syncLateNodes();
         OffChainStore offChain = new OffChainStore();
         String offChainFile = new File(folder, "offchain.dat").getPath();
         if (new File(offChainFile).exists()) {
             offChain.load(offChainFile);
         }
         service = new ApisChainService(network, offChain, offChainFile);
+    }
+
+    /**
+     * Um nó que estava desligado quando o programa fechou tem a cadeia gravada
+     * mais curta. Ao abrir, copia os blocos em falta (setOnline sincroniza com o
+     * nó de cadeia mais comprida, verificando cada bloco).
+     */
+    private void syncLateNodes() throws Exception {
+        int longest = 0;
+        for (Node n : nodes) {
+            longest = Math.max(longest, n.getChain().getSize());
+        }
+        for (Node n : nodes) {
+            if (n.getChain().getSize() < longest) {
+                network.setOnline(n, true);
+            }
+        }
     }
 
     /**
@@ -146,6 +165,8 @@ public class DemoData {
         service.packJars(beekeeper, lot, 1, 200, 1.0);
         service.packJars(beekeeper, lot, 201, 450, 0.5);
         service.sellJar(shop, lot + "-137");
+        // cinco vendas no mesmo bloco, para a árvore de Merkle ter vários níveis
+        service.sellJars(shop, List.of(lot + "-101", lot + "-102", lot + "-103", lot + "-104", lot + "-105"));
     }
 
     /**
