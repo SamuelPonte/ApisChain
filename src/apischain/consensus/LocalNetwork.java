@@ -160,7 +160,7 @@ public class LocalNetwork {
 
     /**
      * Liga ou desliga um nó. Ao voltar a ligar, o nó copia os blocos em falta
-     * do nó ligado com a cadeia mais comprida.
+     * do nó ligado com a cadeia íntegra mais comprida.
      *
      * @param node nó
      * @param on true para ligar
@@ -170,10 +170,12 @@ public class LocalNetwork {
         node.setOnline(on);
         addLog("nó " + node.getId() + (on ? " ligado" : " desligado"));
         if (on) {
-            // procurar o nó ligado com mais blocos
+            // procurar o nó ligado com mais blocos e com a cadeia íntegra (copiar de uma
+            // cadeia corrompida falhava e o nó ficava atrasado)
             Node best = null;
             for (Node n : nodes) {
-                if (n != node && n.isOnline() && (best == null || n.getChain().getSize() > best.getChain().getSize())) {
+                if (n != node && n.isOnline() && n.getChain().isValid()
+                        && (best == null || n.getChain().getSize() > best.getChain().getSize())) {
                     best = n;
                 }
             }
