@@ -23,7 +23,8 @@ import java.util.List;
  * rede P2P com sockets TCP, que chama os mesmos métodos do Node.
  *
  * Uma ronda de consenso (submit):
- * 1. escolhe o proponente da vez (rotação), saltando as autoridades desligadas;
+ * 1. escolhe o proponente da vez (rotação), saltando as autoridades desligadas
+ *    ou com a cópia da cadeia atrasada ou corrompida;
  * 2. o proponente verifica as transações e cria o bloco assinado;
  * 3. os outros validadores verificam o bloco e votam;
  * 4. com o quórum (2 em 3), o bloco é enviado a todos os nós ligados.
@@ -86,23 +87,29 @@ public class LocalNetwork {
      *                   outra se não houver proponente ou quórum
      */
     public synchronized Block submit(List<Transaction> txs) throws Exception {
-        // 1. as autoridades e a altura do próximo bloco, vistas por um nó ligado
-        Node reference = firstOnline();
+        // 1. as autoridades e a altura do próximo bloco, vistas pelo nó ligado com a
+        //    cadeia mais comprida (um nó atrasado ou adulterado daria a altura errada)
+        Node reference = longestOnline();
         if (reference == null || reference.getChain().getSize() == 0) {
             throw new Exception("A rede ainda não tem génese ou não há nós ligados");
         }
         List<Authority> authorities = ProofOfAuthority.getAuthorities(reference.getChain(), null);
         int height = reference.getChain().getSize();
-        // 2. proponente da vez; se estiver desligado, passa ao seguinte
+        // 2. proponente da vez; se estiver desligado, ou se a sua cópia da cadeia
+        //    estiver atrasada ou corrompida (não conseguiria propor um bloco que os
+        //    outros aceitem), passa ao seguinte
         for (int skip = 0; skip < authorities.size(); skip++) {
-            Node proposer = findNode(ProofOfAuthority.selectProposer(authorities, height, skip));
-            if (proposer != null && proposer.isOnline()) {
+            String did = ProofOfAuthority.selectProposer(authorities, height, skip);
+            Node proposer = findNode(did);
+            if (proposer == null || !proposer.isOnline()) {
+                addLog("proponente " + did + " desligado: passa ao seguinte");
+            } else if (proposer.getChain().getSize() != height || !proposer.getChain().isValid()) {
+                addLog("proponente " + proposer.getId() + " com a cópia da cadeia atrasada ou corrompida: passa ao seguinte");
+            } else {
                 return runRound(proposer, txs, authorities);
             }
-            addLog("proponente " + ProofOfAuthority.selectProposer(authorities, height, skip)
-                    + " desligado: passa ao seguinte");
         }
-        throw new Exception("Nenhuma autoridade ligada: não é possível criar blocos");
+        throw new Exception("Nenhuma autoridade ligada e com a cadeia em dia: não é possível criar blocos");
     }
 
     /**
@@ -208,15 +215,16 @@ public class LocalNetwork {
     }
 
     /**
-     * @return o primeiro nó ligado, ou null
+     * @return o nó ligado com a cadeia mais comprida, ou null
      */
-    private Node firstOnline() {
+    private Node longestOnline() {
+        Node best = null;
         for (Node n : nodes) {
-            if (n.isOnline()) {
-                return n;
+            if (n.isOnline() && (best == null || n.getChain().getSize() > best.getChain().getSize())) {
+                best = n;
             }
         }
-        return null;
+        return best;
     }
 
     private void addLog(String msg) {
