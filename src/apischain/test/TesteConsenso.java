@@ -206,6 +206,34 @@ public class TesteConsenso {
         check("adulterar a cadeia do N4 não muda a do N1",
                 !n4.getChain().isValid() && n1.getChain().isValid());
 
+        // ------------------------------------------------------------------
+        System.out.println("\n10. PROPONENTE COM A CÓPIA DA CADEIA CORROMPIDA");
+        // duas vendas para a cadeia ficar com 9 blocos: o bloco #9 é da vez do N1 (9 % 3 = 0)
+        for (int frasco = 20; frasco <= 21; frasco++) {
+            SaleTx v = new SaleTx(did(loja), "LOTE-2026-0042-" + frasco);
+            v.sign(loja.getPrivate());
+            rede.submit(v);
+        }
+        // um atacante adultera a cópia do N1: o N1 deixa de conseguir propor e votar
+        n1.getChain().get(3).tamperTransaction(0, "lote falsificado");
+        int aceites = 0;
+        for (int frasco = 22; frasco <= 24; frasco++) {
+            SaleTx v = new SaleTx(did(loja), "LOTE-2026-0042-" + frasco);
+            v.sign(loja.getPrivate());
+            try {
+                rede.submit(v);
+                aceites++;
+            } catch (Exception e) {
+                System.out.println("   recusada: " + e.getMessage());
+            }
+        }
+        check("com o N1 corrompido, as 3 vendas seguintes entram (LAB e DOP chegam para o quórum)",
+                aceites == 3 && n2.getChain().getSize() == 12 && n3.getChain().getSize() == 12);
+        check("o bloco #9, que era da vez do N1, foi proposto pelo LAB",
+                n2.getChain().getSize() > 9 && n2.getChain().get(9).getValidator().equals(did(lab))
+                && String.join("\n", rede.getLog()).contains("N1 com a cópia da cadeia atrasada ou corrompida"));
+        check("o N1 corrompido ficou parado nos 9 blocos", n1.getChain().getSize() == 9);
+
         System.out.println("\nREGISTO DA REDE (últimas linhas)");
         List<String> log = rede.getLog();
         for (String linha : log.subList(Math.max(0, log.size() - 6), log.size())) {
