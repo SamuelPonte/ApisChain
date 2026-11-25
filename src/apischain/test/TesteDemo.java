@@ -118,7 +118,7 @@ public class TesteDemo {
         check("os 4 nós têm cadeias iguais e válidas", iguais);
 
         // ------------------------------------------------------------------
-        // Os passos 8 a 14 usam pastas temporárias: estragam o cenário de propósito
+        // Os passos 8 a 15 usam pastas temporárias: estragam o cenário de propósito
         DemoData limpa = DemoData.load(Files.createTempDirectory("apischain-demo").toString());
         ApisChainService sl = limpa.getService();
         String lt = limpa.getBaseLot();
@@ -226,6 +226,24 @@ public class TesteDemo {
         }
         check("ao abrir, o N4 recupera o bloco em falta", iguais);
         check("e o serviço vê a venda feita enquanto ele estava desligado", d3.getService().getState().isSold(l2 + "-140"));
+
+        // ------------------------------------------------------------------
+        System.out.println("\n15. LIGAR UM NÓ COM OUTRO CORROMPIDO");
+        // o N1 tem a cadeia mais comprida, mas com o último bloco adulterado; o N2 está bom
+        Node c1 = d3.getNodes().get(0);
+        Node c3 = d3.getNodes().get(2);
+        d3.getNetwork().setOnline(c3, false);
+        d3.getService().sellJar(d3.getShop(), l2 + "-141");
+        c1.getChain().getLastBlock().tamperTransaction(0, "adulterada");
+        try {
+            d3.getNetwork().setOnline(c3, true);
+        } catch (Exception e) {
+            System.out.println("   ao ligar o N3: " + e.getMessage());
+        }
+        Node c2 = d3.getNodes().get(1);
+        check("o N3 sincroniza com um nó íntegro e fica igual ao N2",
+                c3.getChain().isValid()
+                && c3.getChain().getLastBlockHash().equals(c2.getChain().getLastBlockHash()));
 
         // ------------------------------------------------------------------
         System.out.println();
