@@ -1,0 +1,40 @@
+// ApisChain · fluxo de emissão, armazenamento e verificação de uma credencial (exemplo: análise do lote)
+// Gerar a imagem: dot -Tpng -Gdpi=150 diagrama_fluxo_credencial_v2.dot -o diagrama_fluxo_credencial_v2.png
+digraph Fluxo {
+  rankdir=LR; newrank=true; nodesep=0.35; ranksep=0.45; bgcolor="white";
+  graph [fontname="Arial", fontsize=12, labeljust=l];
+  node [fontname="Arial", fontsize=10, shape=box, style="rounded,filled", fillcolor="white", color="#666666"];
+  edge [fontname="Arial", fontsize=9, color="#555555"];
+  labelloc=t; label=<<B>ApisChain · Fluxo da credencial: emissão, armazenamento e verificação</B><BR/><FONT POINT-SIZE="10">Exemplo: análise de um lote emitida pelo Laboratório e verificada pelo consumidor ao ler o QR do frasco</FONT>>; fontsize=16;
+
+  subgraph cluster_emissao { label="Emissão (Laboratório)"; style=rounded; color="#1D76DB";
+    e1 [label="1. Entrar\npalavra-passe decifra a chave privada\n(nome.priv, AES-GCM + PBKDF2)"];
+    e2 [label="2. Credential AN-0001\ntipo, emissor (DID), titular (lote)\ndados: origem floral, humidade, adulteração\nassinada pelo Laboratório"];
+    e3 [label="3. IssueCredentialTx\nid, tipo, titular\nhash SHA3-256 da credencial\nassinada pelo Laboratório"];
+  }
+  subgraph cluster_consenso { label="Consenso PoA (4 nós)"; style=rounded; color="#B07D00";
+    c1 [label="4. Proponente da vez\nverifica as regras (Rules)\ncria e assina o bloco", fillcolor="#FFF6E5"];
+    c2 [label="5. Outras autoridades\nverificam o bloco e votam\n(2 assinaturas em 3)", fillcolor="#FFF6E5"];
+    c3 [label="6. Bloco nos 4 nós\ncada nó grava a sua cópia\n(raiz de Merkle das transações)", fillcolor="#FFF6E5"];
+  }
+  subgraph cluster_armazenamento { label="Armazenamento"; style=rounded; color="#0E8A16";
+    on  [label="Na cadeia\nIssueCredentialTx\n(hash, sem dados pessoais)", shape=cylinder, fillcolor="#E8F3EA"];
+    off [label="Fora da cadeia\nOffChainStore\n(credencial completa assinada)", shape=cylinder, fillcolor="#F4F4F4"];
+  }
+  subgraph cluster_verificacao { label="Verificação (consumidor, sem chave)"; style=rounded; color="#6E7781";
+    v1 [label="8. Lê o QR\nLOTE-2026-0001-138"];
+    v2 [label="9. Cadeia do N4 íntegra?\nPackTx assinada pelo apicultor\nprova de Merkle até à raiz do bloco"];
+    v3 [label="10. Para a análise do lote\nnão revogada · mesmo id, tipo, titular e emissor\nhash da credencial = hash ancorado\nassinatura do Laboratório com a chave da cadeia"];
+    v4 [label="11. Resultado\nOK · AVISO · FALHA", fillcolor="#EEF3FB"];
+  }
+
+  e1 -> e2 -> e3;
+  e3 -> c1 [label="LocalNetwork.submit"];
+  c1 -> c2 -> c3;
+  c3 -> on;
+  c3 -> off [label="7. só depois de aceite"];
+  v1 -> v2 -> v3 -> v4;
+  on -> v2 [style=dashed, label="lê"];
+  on -> v3 [style=dashed];
+  off -> v3 [style=dashed, label="compara o hash"];
+}

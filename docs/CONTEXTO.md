@@ -55,7 +55,7 @@ O código da Fase 2 está em `main` e as issues #1 a #7 estão fechadas:
 Cuidados na demonstração: repor a análise depois da fraude 2, antes de emitir outra credencial; adulterar um nó só no fim e repor.
 
 Falta na Fase 2 (entregas oficiais a 1 e 2 dez):
-- #8: especificação das credenciais, mapa RGPD e diagramas v2 (os diagramas em `docs/` ainda são a v1); juntar e rever o relatório.
+- #8: a especificação das credenciais, o mapa RGPD (`docs/credenciais_e_rgpd.md`) e os diagramas v2 (`docs/diagrama_*_v2`) estão feitos; falta o texto do André, juntar tudo no Word e rever o relatório.
 - #9: diapositivos, ensaio cronometrado e PDF assinado pelos dois.
 
 A seguir, Fase 3: issues #10 a #14.

@@ -34,7 +34,8 @@ A rede P2P da Fase 3 ainda não tem pacote definido.
 
 ## Documentação
 - `docs/decisoes_fase2.md`: decisões fechadas e plano.
-- `docs/`: diagramas de arquitetura e de classes (v1; a v2 sai na issue #8).
+- `docs/credenciais_e_rgpd.md`: especificação das credenciais e mapa RGPD (secções do relatório).
+- `docs/diagrama_*_v2`: diagramas de classes, de arquitetura e do fluxo da credencial (fonte `.dot` do Graphviz, imagens `.png` e `.svg`).
 - `CONTRIBUTING.md`: como trabalhamos.
 - `docs/CONTEXTO.md`: contexto e decisões do projeto.
 

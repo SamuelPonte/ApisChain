@@ -1,0 +1,117 @@
+// ApisChain · diagrama de classes v2 (gerado a partir do código em main a 25 nov 2026)
+// Gerar a imagem: dot -Tpng -Gdpi=150 diagrama_classes_v2.dot -o diagrama_classes_v2.png
+digraph Classes {
+  rankdir=TB; newrank=true; compound=true; nodesep=0.3; ranksep=0.6; bgcolor="white";
+  graph [fontname="Arial", fontsize=12, labeljust=l];
+  node [shape=plaintext, fontname="Arial", fontsize=9];
+  edge [fontname="Arial", fontsize=8, color="#555555"];
+  labelloc=t; label=<<B>ApisChain · Diagrama de classes v2</B><BR/><FONT POINT-SIZE="9">Só os campos e métodos principais. Seta cheia: herança. Losango: composição. Tracejado: usa.</FONT>>; fontsize=15;
+
+  subgraph cluster_utils { label="apischain.utils"; style=rounded; color="#999999";
+    SecurityUtils [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>SecurityUtils</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getHash(data): String  (SHA3-256)<BR/>+ generateKeyPair(): KeyPair  (RSA 2048)<BR/>+ sign(data, priv): String<BR/>+ verify(data, sig, pub): boolean<BR/>+ keyToBase64(key) / publicKeyFromBase64(txt)<BR/>+ savePublicKey / loadPublicKey  (.pub)<BR/>+ savePrivateKey / loadPrivateKey  (.priv, AES-GCM + PBKDF2)</TD></TR></TABLE>>];
+    Conversion [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Conversion</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ objectToString(obj): String<BR/>+ stringToObject(base64): T</TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_core { label="apischain.core"; style=rounded; color="#999999";
+    BlockChain [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>BlockChain</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- chain: ArrayList&lt;Block&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ add(b): boolean<BR/>+ getInvalidIndex(): int<BR/>+ isValid(): boolean<BR/>+ getLastBlockHash(): String<BR/>+ save(f) / load(f)</TD></TR></TABLE>>];
+    Block [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Block</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- index, timestamp, previousHash<BR/>- transactions: List&lt;String&gt;  (Base64)<BR/>- merkleRoot, validator, currentHash<BR/>- signature: String<BR/>- votes: List&lt;Vote&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ calculateHash(): String<BR/>+ isValid(): boolean<BR/>+ getMerkleTree(): MerkleTree<BR/>+ setSignature(s) / addVote(v)</TD></TR></TABLE>>];
+    Vote [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Vote</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- validator: String (DID)<BR/>- signature: String</TD></TR></TABLE>>];
+    MerkleTree [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>MerkleTree</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- hashTree: List&lt;List&lt;String&gt;&gt;<BR/>- elements: List&lt;String&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getRoot(): String<BR/>+ getProof(data): List&lt;String&gt;<BR/>+ isProofValid(data, proof): boolean</TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_identity { label="apischain.identity"; style=rounded; color="#999999";
+    Role [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><FONT POINT-SIZE="8">&laquo;enum&raquo;</FONT><BR/><B>Role</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">DGAV, LAB, DOP,<BR/>APICULTOR, LOJA</TD></TR></TABLE>>];
+    DigitalID [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>DigitalID</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- name: String<BR/>- role: Role<BR/>- publicKey: String (Base64)<BR/>- did: String<BR/>- signature: String</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ createDid(publicKey): String<BR/>+ isValid(): boolean<BR/>+ create(name, role, password, folder)<BR/>+ load(name, folder)<BR/>+ loadPrivateKey(name, password, folder)</TD></TR></TABLE>>];
+    CredentialType [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><FONT POINT-SIZE="8">&laquo;enum&raquo;</FONT><BR/><B>CredentialType</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">REGISTO_APICULTOR, REGISTO_APIARIO,<BR/>REGISTO_LOJA, LOTE,<BR/>ANALISE_LOTE, CERTIFICADO_ORIGEM</TD></TR></TABLE>>];
+    Credential [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Credential</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- id, issuer (DID), subject<BR/>- type: CredentialType<BR/>- data: TreeMap&lt;String,String&gt;<BR/>- issuedAt: long<BR/>- signature: String</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getHash(): String<BR/>+ sign(priv)<BR/>+ isSignatureValid(pub): boolean</TD></TR></TABLE>>];
+    OffChainStore [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>OffChainStore</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- credentials: HashMap&lt;String,Credential&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ put(c) / get(id)<BR/>+ save(f) / load(f)</TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_tx { label="apischain.transactions"; style=rounded; color="#999999";
+    Transaction [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><FONT POINT-SIZE="8">&laquo;abstract&raquo;</FONT><BR/><B>Transaction</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- author: String (DID)<BR/>- timestamp: long<BR/>- signature: String</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getContent(): String  {abstract}<BR/>+ getDataToSign(): String<BR/>+ sign(priv) / isSignatureValid(pub)<BR/>+ toBase64() / fromBase64(txt)</TD></TR></TABLE>>];
+    GenesisTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>GenesisTx</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- authorities: List&lt;Authority&gt;</TD></TR></TABLE>>];
+    Authority [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Authority</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- did, role, publicKey</TD></TR></TABLE>>];
+    IssueCredentialTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>IssueCredentialTx</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- credentialId, credentialType<BR/>- subject, credentialHash<BR/>- subjectKey  (só registos)<BR/>- weightKg  (só LOTE)</TD></TR></TABLE>>];
+    RevokeTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>RevokeTx</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- credentialId, reason</TD></TR></TABLE>>];
+    PackTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>PackTx</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- lot, firstJar, lastJar<BR/>- weightKg  (por frasco)</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getTotalKg() / getJarId(n)</TD></TR></TABLE>>];
+    SaleTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>SaleTx</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- jarId  (loja = autor)</TD></TR></TABLE>>];
+    FraudAlertTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>FraudAlertTx</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- jarId, reason</TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_ledger { label="apischain.ledger"; style=rounded; color="#999999";
+    LedgerState [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>LedgerState</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- mapas: chaves, credenciais, revogadas,<BR/>  embalagens, vendas, alertas</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ LedgerState(chain)<BR/>+ apply(tx)<BR/>+ publicKeyOf(did) / roleOf(did)<BR/>+ isRevoked(id) / lotBalance(lot)<BR/>+ findPack(jarId) / isSold(jarId)</TD></TR></TABLE>>];
+    Rules [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Rules</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ TOLERANCE = 0.02</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ check(tx, state, proposer): Transaction<BR/>  (aceita, lança RuleException ou<BR/>  devolve um FraudAlertTx por assinar)</TD></TR></TABLE>>];
+    LotBalance [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>LotBalance</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- harvestedKg, packedKg</TD></TR></TABLE>>];
+    RuleException [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>RuleException</B></TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_consensus { label="apischain.consensus"; style=rounded; color="#999999";
+    LocalNetwork [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>LocalNetwork</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- nodes: List&lt;Node&gt;<BR/>- log: List&lt;String&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ start(genesis): Block<BR/>+ submit(txs): Block<BR/>+ broadcast(block)<BR/>+ setOnline(node, on)</TD></TR></TABLE>>];
+    NodeCls [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Node</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- id, did, privateKey  (null no N4)<BR/>- chain: BlockChain  (cópia própria)<BR/>- online: boolean</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ propose(txs): Block<BR/>+ validate(block): Vote<BR/>+ commit(block)<BR/>+ syncFrom(other): int</TD></TR></TABLE>>];
+    ProofOfAuthority [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>ProofOfAuthority</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getAuthorities(chain, block)<BR/>+ quorum(n): int  (2 em 3)<BR/>+ selectProposer(auth, height, skip)<BR/>+ verifyBlock(block, chain)<BR/>+ countSignatures(block, auth): int<BR/>+ verifyCommit(block, chain)</TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_service { label="apischain.service"; style=rounded; color="#999999";
+    ApisChainService [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><FONT POINT-SIZE="8">&laquo;fachada&raquo;</FONT><BR/><B>ApisChainService</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- network: LocalNetwork<BR/>- offChain: OffChainStore</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ registerBeekeeper / registerApiary / registerShop<BR/>+ createLot / issueAnalysis / issueCertificate<BR/>+ revoke / packJars / sellJar / sellJars<BR/>+ verifyJar(jarId): VerificationResult</TD></TR></TABLE>>];
+    VerificationResult [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>VerificationResult</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- level: OK | AVISO | FALHA<BR/>- checks: List&lt;String&gt;</TD></TR></TABLE>>];
+    Actor [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Actor</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- id: DigitalID<BR/>- key: PrivateKey</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ login(name, password, folder)</TD></TR></TABLE>>];
+    DemoData [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>DemoData</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ load(folder): DemoData<BR/>  (chaves, 4 nós, cenário base)</TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_gui { label="apischain.gui (Swing)"; style=rounded; color="#999999";
+    ApisChainApp [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>ApisChainApp</B></TD></TR><TR><TD ALIGN="LEFT">+ main(args)</TD></TR></TABLE>>];
+    LoginFrame [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>LoginFrame</B> (JFrame)</TD></TR></TABLE>>];
+    MainFrame [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>MainFrame</B> (JFrame)</TD></TR><TR><TD ALIGN="LEFT">- tabs: JTabbedPane</TD></TR></TABLE>>];
+    BasePanel [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><FONT POINT-SIZE="8">&laquo;abstract&raquo;</FONT><BR/><B>BasePanel</B> (JPanel)</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- service, actor</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ runInBackground(button, operation)<BR/>  (new Thread + SwingUtilities.invokeLater)</TD></TR></TABLE>>];
+    Panels [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>Painéis</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">DgavPanel, LabPanel, DopPanel,<BR/>BeekeeperPanel, ShopPanel, ConsumerPanel,<BR/>ChainPanel, MerkleTreePanel, NetworkPanel</TD></TR></TABLE>>];
+    MerkleGraphics [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>MerkleGraphics</B> (JPanel)</TD></TR></TABLE>>];
+  }
+
+  // core
+  BlockChain -> Block [arrowtail=diamond, dir=back, headlabel="*"];
+  Block -> Vote [arrowtail=diamond, dir=back, headlabel="*"];
+  Block -> MerkleTree [style=dashed, label="raiz"];
+  Block -> SecurityUtils [style=dashed];
+  // transações
+  GenesisTx -> Transaction [arrowhead=empty];
+  IssueCredentialTx -> Transaction [arrowhead=empty];
+  RevokeTx -> Transaction [arrowhead=empty];
+  PackTx -> Transaction [arrowhead=empty];
+  SaleTx -> Transaction [arrowhead=empty];
+  FraudAlertTx -> Transaction [arrowhead=empty];
+  GenesisTx -> Authority [arrowtail=diamond, dir=back, headlabel="*"];
+  Transaction -> Conversion [style=dashed, label="Base64 no bloco"];
+  // identidade
+  DigitalID -> Role;
+  Credential -> CredentialType;
+  OffChainStore -> Credential [arrowtail=diamond, dir=back, headlabel="*"];
+  IssueCredentialTx -> Credential [style=dashed, label="hash"];
+  // estado e regras
+  LedgerState -> BlockChain [style=dashed, label="lê"];
+  LedgerState -> LotBalance [style=dashed];
+  Rules -> LedgerState [style=dashed];
+  Rules -> RuleException [style=dashed];
+  Rules -> DigitalID [style=dashed, label="createDid"];
+  // consenso
+  LocalNetwork -> NodeCls [arrowtail=diamond, dir=back, headlabel="4"];
+  NodeCls -> BlockChain [arrowtail=diamond, dir=back, label="cópia própria"];
+  NodeCls -> ProofOfAuthority [style=dashed];
+  NodeCls -> Rules [style=dashed, label="antes de propor"];
+  ProofOfAuthority -> Rules [style=dashed, label="antes de votar"];
+  ProofOfAuthority -> Authority [style=dashed];
+  // serviço
+  ApisChainService -> LocalNetwork;
+  ApisChainService -> OffChainStore;
+  ApisChainService -> VerificationResult [style=dashed];
+  ApisChainService -> Actor [style=dashed];
+  Actor -> DigitalID;
+  DemoData -> ApisChainService;
+  // interface
+  ApisChainApp -> LoginFrame [style=dashed];
+  LoginFrame -> DemoData [style=dashed];
+  LoginFrame -> MainFrame [style=dashed, label="abre"];
+  MainFrame -> Panels [arrowtail=diamond, dir=back];
+  Panels -> BasePanel [arrowhead=empty];
+  Panels -> MerkleGraphics [style=dashed];
+  BasePanel -> ApisChainService [label="só fala com"];
+}

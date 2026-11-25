@@ -1,0 +1,42 @@
+// ApisChain · diagrama de arquitetura v2 (PoC da Fase 2, 25 nov 2026)
+// Gerar a imagem: dot -Tpng -Gdpi=150 diagrama_arquitetura_v2.dot -o diagrama_arquitetura_v2.png
+digraph Arquitetura {
+  rankdir=TB; newrank=true; nodesep=0.3; ranksep=0.5; bgcolor="white";
+  graph [fontname="Arial", fontsize=12, labeljust=l];
+  node [fontname="Arial", fontsize=10, shape=box, style="rounded,filled", fillcolor="white", color="#666666"];
+  edge [fontname="Arial", fontsize=9, color="#555555"];
+  labelloc=t; label=<<B>ApisChain · Arquitetura do serviço (PoC da Fase 2)</B><BR/><FONT POINT-SIZE="10">Tudo corre num só computador; na Fase 3 a rede local é substituída por sockets TCP entre máquinas</FONT>>; fontsize=16;
+
+  subgraph cluster_act { label="Intervenientes (cada um com a sua chave privada, cifrada com palavra-passe)"; style=rounded; color="#999999";
+    dgav [label="DGAV\nregista apicultores,\napiários e lojas; revoga"];
+    lab  [label="Laboratório\nemite a análise do lote"];
+    dop  [label="Certificador DOP\nemite o certificado de origem"];
+    api  [label="Apicultor\ncria lotes e embala\nfrascos com QR"];
+    loja [label="Loja\nregista a venda\nde cada frasco"];
+    cons [label="Consumidor\nverifica o QR do frasco\n(sem chave)"];
+  }
+  gui [label="Interface Swing (apischain.gui)\nentrada com palavra-passe · um painel por interveniente\nmais Consumidor, Cadeia, Merkle e Rede · operações em threads (não bloqueia)", fillcolor="#EEF3FB"];
+  svc [label="ApisChainService (fachada)\ncria credenciais e transações assinadas · verifica frascos", fillcolor="#EEF3FB"];
+
+  subgraph cluster_poa { label="Consenso Proof of Authority com votação (apischain.consensus + apischain.ledger)"; style=rounded; color="#999999";
+    rules [label="Regras dos validadores (Rules)\nassinatura e papel do autor · origem do lote no apiário do apicultor\nbalanço de massa (2%) · venda dupla → ALERTA_FRAUDE · revogações", fillcolor="#FFF6E5"];
+    poa [label="1. proponente rotativo (salta os desligados ou com a cadeia atrasada ou corrompida)\n2. as outras autoridades verificam e votam (assinam o hash do bloco)\n3. com 2 assinaturas em 3 o bloco entra em todos os nós ligados", fillcolor="#FFF6E5"];
+  }
+  subgraph cluster_net { label="Rede local (LocalNetwork)"; style=rounded; color="#999999";
+    n1 [label="N1 · DGAV\nvalidador\ncópia da cadeia", shape=box3d];
+    n2 [label="N2 · Laboratório\nvalidador\ncópia da cadeia", shape=box3d];
+    n3 [label="N3 · DOP\nvalidador\ncópia da cadeia", shape=box3d];
+    n4 [label="N4 · não validador\nrecebe e verifica os blocos\n(cópia lida pelo consumidor)", shape=box3d];
+  }
+  subgraph cluster_data { label="Onde ficam os dados (RGPD)"; style=rounded; color="#999999";
+    on  [label="Na cadeia (on-chain)\nDIDs e chaves públicas · hashes das credenciais · kg do lote\nembalagens, vendas, alertas · revogações", shape=cylinder, fillcolor="#E8F3EA"];
+    off [label="Fora da cadeia (off-chain)\ncredenciais completas assinadas (OffChainStore)\nnomes, NIF, moradas, coordenadas dos apiários", shape=cylinder, fillcolor="#F4F4F4"];
+  }
+  {dgav lab dop api loja cons} -> gui [arrowhead=none, color="#AAAAAA"];
+  gui -> svc;
+  svc -> poa [label="transações"];
+  poa -> rules [dir=both, label="cada transação"];
+  poa -> n1; poa -> n2; poa -> n3; poa -> n4 [style=dashed, label="recebe"];
+  n1 -> on [style=dashed, arrowhead=none]; n2 -> on [style=dashed, arrowhead=none]; n3 -> on [style=dashed, arrowhead=none]; n4 -> on [style=dashed, arrowhead=none];
+  svc -> off [label="guarda a credencial\ndepois de a rede aceitar;\nna cadeia só o hash"];
+}
