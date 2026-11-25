@@ -8,21 +8,23 @@ Apicultores, apiários, lotes e frascos têm identificadores. A DGAV, o Laborat�
 ## Abrir no NetBeans
 1. File > Open Project e escolher esta pasta.
 2. Java 17 ou superior.
-3. Run (F6) corre, por agora, o teste de consola `apischain.test.TesteNucleo`.
+3. Run (F6) abre a interface. Na primeira vez cria a pasta `data/` (chaves, 4 nós e cenário da demonstração); para recomeçar do zero, fechar o programa e apagar essa pasta.
+4. Os testes de consola estão em `apischain.test` e correm com Run File.
 
 ## Estrutura
 | Pacote | Conteúdo | Estado |
 |---|---|---|
 | `apischain.utils` | `SecurityUtils` (SHA3-256, RSA, chaves em ficheiro), `Conversion` | feito |
 | `apischain.core` | `Block`, `BlockChain`, `MerkleTree`, `Vote` | feito |
-| `apischain.identity` | `DigitalID`, `Credential`, `CredentialType`, `OffChainStore` | issue #1 |
-| `apischain.transactions` | `Transaction` e subclasses | issue #2 |
-| `apischain.ledger` | `LedgerState`, `Rules` | issue #3 |
-| `apischain.consensus` | `Node`, `ProofOfAuthority`, `LocalNetwork` | issue #4 |
-| `apischain.service` | `ApisChainService` | issue #5 |
-| `apischain.gui` | interfaces Swing | issues #6 e #7 |
+| `apischain.identity` | `DigitalID`, `Role`, `Credential`, `CredentialType`, `OffChainStore` | feito (#1) |
+| `apischain.transactions` | `Transaction` e seis subclasses, `Authority` | feito (#2) |
+| `apischain.ledger` | `LedgerState`, `Rules`, `LotBalance`, `RuleException` | feito (#3) |
+| `apischain.consensus` | `Node`, `ProofOfAuthority`, `LocalNetwork` | feito (#4) |
+| `apischain.service` | `ApisChainService`, `VerificationResult`, `Actor`, `DemoData` | feito (#5) |
+| `apischain.gui` | `ApisChainApp` (arranque), `LoginFrame`, `MainFrame` e um painel por interveniente, mais Cadeia, Merkle e Rede | feito (#6 e #7) |
+| `apischain.test` | seis testes de consola: `TesteNucleo`, `TesteIdentidade`, `TesteTransacoes`, `TesteRegras`, `TesteConsenso`, `TesteDemo` | feito |
 
-Os nomes dos pacotes por fazer são os previstos no diagrama de classes; a rede P2P da Fase 3 ainda não tem pacote definido.
+A rede P2P da Fase 3 ainda não tem pacote definido.
 
 ## Planeamento
 | Milestone | Data | Conteúdo |
@@ -37,4 +39,4 @@ Os nomes dos pacotes por fazer são os previstos no diagrama de classes; a rede 
 - `docs/CONTEXTO.md`: contexto e decisões do projeto.
 
 ## Origem do código
-`Block`, `BlockChain`, `MerkleTree`, `SecurityUtils` e `Conversion` partem do código das aulas (Templar2026 e BlockChainGUI, Prof. António Manso). As alterações estão descritas no início de cada classe.
+`Block`, `BlockChain`, `MerkleTree`, `SecurityUtils` e `Conversion` partem do código das aulas (Templar2026 e BlockChainGUI, Prof. António Manso). `Transaction`, `DigitalID`, `LoginFrame`, `MerkleTreePanel` e `MerkleGraphics` baseiam-se também em exemplos das aulas. As alterações estão descritas no início de cada classe.

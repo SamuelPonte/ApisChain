@@ -28,7 +28,7 @@ Ideia: Blockchain ID para certificar a origem do mel. Apicultores, apiários, lo
 - Fraudes da demo: QR copiado (segunda venda), análise alterada fora da cadeia (hash não coincide), embalar mais do que se produziu (balanço de massa).
 
 ## Organização do trabalho
-- Repositório GitHub privado; cada tarefa é uma issue com dono (ver `CONTRIBUTING.md`). Implementar só o que a issue pede.
+- Repositório GitHub público; cada tarefa é uma issue com dono (ver `CONTRIBUTING.md`). Implementar só o que a issue pede.
 - Samuel: identidade, credenciais, consenso, painéis das autoridades. André: transações, estado e regras, serviço, restantes painéis.
 - `apischain.core` e `apischain.utils` estão feitos e testados: não alterar sem a issue o pedir.
 - Material do professor (fora do repositório, na pasta partilhada `computacao_distribuida`): `Templar2026_DigitalID.zip`, `Templar2026_ver2.zip`, `BlockChainGUI.zip`.
@@ -40,21 +40,25 @@ Ideia: Blockchain ID para certificar a origem do mel. Apicultores, apiários, lo
 - Português europeu em tudo; NUNCA usar travessões ("—") em código, comentários, documentos ou respostas.
 - Quando se adapta código das aulas, indicar a origem no cabeçalho da classe e descrever as alterações.
 
-## Estado (15 nov 2026)
-Feito (semana 11 a 14 nov):
+## Estado (25 nov 2026)
+O código da Fase 2 está em `main` e as issues #1 a #7 estão fechadas:
 - `apischain.utils`: `SecurityUtils` (hash, RSA em String e em bytes, chaves em ficheiro com AES-GCM + PBKDF2 copiado do Templar ver2), `Conversion` (`objectToString` / `stringToObject`).
-- `apischain.core`: `Block` (sem nonce; índice, timestamp, previousHash, transações em Base64, raiz de Merkle, validador, assinatura, votos), `Vote`, `BlockChain` (`add` com 3 verificações, `getInvalidIndex`, `save`/`load`), `MerkleTree` (do BlockChainGUI, com SHA3-256 e duas correções: `!` em falta no `isValid` e prova de nó sem irmão).
-- `apischain.test.TesteNucleo`: teste de consola em 8 passos (main class atual).
-- `docs/`: diagramas de arquitetura e de classes v1 (Graphviz).
+- `apischain.core`: `Block` (sem nonce; índice, timestamp, previousHash, transações em Base64, raiz de Merkle, validador, assinatura, votos), `Vote`, `BlockChain` (`add` com 3 verificações, `getInvalidIndex`, `save`/`load`), `MerkleTree` (do BlockChainGUI, com SHA3-256 e duas correções: `!` em falta no `isValid` e prova de nó sem irmão). `isProofValid` só compara com a raiz que vem na prova: quem verifica confirma também que é a raiz guardada no bloco.
+- `apischain.identity`: `DigitalID` (DID derivado da chave pública, nunca vai para a cadeia), `Credential`, `OffChainStore`.
+- `apischain.transactions`: `Transaction` abstrata e assinada (a chave pública não vai na transação) e seis subclasses; `PackTx` tem o peso por frasco.
+- `apischain.ledger`: `LedgerState` (estado lido da cadeia) e `Rules.check`, que aceita, recusa com `RuleException` ou devolve um `FraudAlertTx` por assinar. Um lote só sai de um apiário registado do próprio apicultor; um DID só se regista uma vez.
+- `apischain.consensus`: `ProofOfAuthority`, `Node` e `LocalNetwork`. O proponente da vez é saltado se estiver desligado ou com a cadeia atrasada ou corrompida; um nó que se liga sincroniza com a cadeia íntegra mais comprida.
+- `apischain.service`: `ApisChainService` (única classe que os painéis chamam), `verifyJar`, `Actor` e `DemoData` (cenário da demonstração). As leituras da cadeia fazem-se com `synchronized (getNetwork())`.
+- `apischain.gui`: interface Swing escrita à mão, sem `.form`. `BasePanel.runInBackground` é o padrão não bloqueante. `ApisChainApp` é o `main.class`.
+- `apischain.test`: seis testes de consola. O `TesteDemo` percorre o cenário e as três fraudes e pode correr várias vezes seguidas.
 
-Plano seguinte (antecipado a 16 nov: a Fase 2 fecha a 25 nov; as entregas oficiais continuam a 1 e 2 dez):
-| Período | Código | Documentação |
-|---|---|---|
-| 16 e 17 nov | `transactions` (Transaction abstrata e subclasses, #2), `identity` (DigitalID, Credential, CredentialType, OffChainStore, #1) | Especificação das credenciais e mapa RGPD |
-| 18 e 19 nov | `ledger` (LedgerState, Rules, #3), `consensus` (Node, ProofOfAuthority, LocalNetwork, #4) | relatorio_fase2_v1 (Word) |
-| 20 e 21 nov | `service` (ApisChainService, 3 fraudes, #5); base da `gui` (entrada, janela, exemplo não bloqueante, #6) | |
-| 22 e 23 nov | `gui` Swing não bloqueante (Thread + SwingUtilities.invokeLater), painéis (#6 e #7) | relatorio_fase2_v2 e diagramas v2 (#8, até 24 nov) |
-| 24 e 25 nov | Guião da demo, ensaio e correções (#9) | Revisão final, PDF assinado pelos dois |
+Cuidados na demonstração: repor a análise depois da fraude 2, antes de emitir outra credencial; adulterar um nó só no fim e repor.
+
+Falta na Fase 2 (entregas oficiais a 1 e 2 dez):
+- #8: especificação das credenciais, mapa RGPD e diagramas v2 (os diagramas em `docs/` ainda são a v1); juntar e rever o relatório.
+- #9: diapositivos, ensaio cronometrado e PDF assinado pelos dois.
+
+A seguir, Fase 3: issues #10 a #14.
 
 ## Referências
 - Protótipo ilustrativo em JavaScript (modelo de dados, regras e fraudes): `projeto/1_fase/ApisChain.html` na pasta partilhada.
