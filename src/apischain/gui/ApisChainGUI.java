@@ -2,8 +2,8 @@
 //::  ApisChain · Certificação descentralizada da origem do mel             ::://
 //::  Computação Distribuída 2026/2027 · ESTT · Instituto Politécnico Tomar ::://
 //::  Samuel Ponte (27227) e André Vassalo (27454)                          ::://
-//::  Baseado em digitalID.ui.DigitalIDui do Templar2026_DigitalID          ::://
-//::  (Prof. António Manso, 2026)                                           ::://
+//::  Baseado em digitalID.ui.DigitalIDui e templarCoin.ui.TemplarCoin      ::://
+//::  do Templar2026 (Prof. António Manso, 2026)                            ::://
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::://
 package apischain.gui;
 
@@ -14,6 +14,7 @@ import apischain.identity.DigitalID;
 import apischain.identity.Role;
 import apischain.service.ApisChain;
 import apischain.transactions.Transaction;
+import java.io.File;
 import java.security.PrivateKey;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -21,15 +22,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.swing.DefaultListModel;
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 /**
- * Janela da ApisChain, com quatro separadores:
- * 1. Identidade: criar as chaves de um apicultor ou entrar com a palavra-passe;
- * 2. Credenciais: emitir e revogar credenciais (conforme o papel de quem entrou);
- * 3. Verificar: o consumidor verifica um lote ou uma credencial (sem chave);
- * 4. Blockchain: os blocos da cadeia, como o explorador do DigitalIDui.
+ * Painel da ApisChain, aberto pelo LoginFrame com a sessão de quem entrou
+ * (como o TemplarCoin recebe o utilizador e as chaves do TemplarLogin).
+ *
+ * Separadores:
+ * 1. Credenciais: emitir os tipos que o papel de quem entrou pode emitir e,
+ *    só para a DGAV, revogar (o consumidor não tem este separador);
+ * 2. Verificar: verificar um lote ou uma credencial (sem chave);
+ * 3. Blockchain: os blocos da cadeia, como o explorador do DigitalIDui.
  *
  * Como no professor, as operações que escrevem na cadeia correm numa thread
  * nova e o ecrã é atualizado com SwingUtilities.invokeLater, para a janela
@@ -39,34 +44,51 @@ import javax.swing.SwingUtilities;
  */
 public class ApisChainGUI extends javax.swing.JFrame {
 
-    private ApisChain apisChain;  // serviço (null enquanto a abrir)
-    private DigitalID myId;       // quem entrou (null se ninguém)
-    private PrivateKey myKey;     // chave privada de quem entrou
+    private final ApisChain apisChain;  // serviço
+    private final DigitalID myId;       // quem entrou (null no consumidor)
+    private final PrivateKey myKey;     // chave privada de quem entrou (null no consumidor)
+    private final JFrame login;         // ecrã de entrada, para onde se volta
 
     /**
-     * Cria a janela e abre o serviço numa thread (na primeira vez cria as
-     * chaves das autoridades e o bloco de génese).
+     * @param apisChain serviço
+     * @param myId identidade de quem entrou (null para o consumidor)
+     * @param myKey chave privada de quem entrou (null para o consumidor)
+     * @param login ecrã de entrada
      */
-    public ApisChainGUI() {
+    public ApisChainGUI(ApisChain apisChain, DigitalID myId, PrivateKey myKey, JFrame login) {
+        this.apisChain = apisChain;
+        this.myId = myId;
+        this.myKey = myKey;
+        this.login = login;
         initComponents();
-        // tipos de credencial para a lista
-        for (CredentialType t : CredentialType.values()) {
-            cbType.addItem(t.name());
+        // 1. quem tem a sessão aberta
+        lblSession.setText(myId == null ? "Sessão: consumidor (sem chave)" : "Sessão: " + myId);
+        // 2. o consumidor só verifica: não tem o separador Credenciais
+        if (myId == null) {
+            jTabbedPane1.remove(pnlCredentials);
+        } else {
+            fillTypes(myId.getRole());
+            // só a DGAV revoga
+            pnlRevoke.setVisible(myId.getRole() == Role.DGAV);
         }
+        updateChain();
         setLocationRelativeTo(null);
-        lblStatus.setText("A abrir a ApisChain...");
-        new Thread(() -> {
-            try {
-                ApisChain a = new ApisChain("data");
-                SwingUtilities.invokeLater(() -> {
-                    apisChain = a;
-                    updateChain();
-                    lblStatus.setText("Pronta. Palavra-passe das autoridades: " + ApisChain.PASSWORD);
-                });
-            } catch (Exception ex) {
-                SwingUtilities.invokeLater(() -> lblStatus.setText("Erro ao abrir: " + ex.getMessage()));
+    }
+
+    /**
+     * Mostra na lista só os tipos de credencial que este papel pode emitir
+     * (as regras dos validadores recusariam os outros).
+     */
+    private void fillTypes(Role role) {
+        switch (role) {
+            case DGAV -> {
+                cbType.addItem(CredentialType.REGISTO_APICULTOR.name());
+                cbType.addItem(CredentialType.REGISTO_APIARIO.name());
             }
-        }).start();
+            case APICULTOR -> cbType.addItem(CredentialType.LOTE.name());
+            case LAB -> cbType.addItem(CredentialType.ANALISE_LOTE.name());
+            case DOP -> cbType.addItem(CredentialType.CERTIFICADO_ORIGEM.name());
+        }
     }
 
     /**
@@ -74,8 +96,8 @@ public class ApisChainGUI extends javax.swing.JFrame {
      */
     private void updateChain() {
         DefaultListModel<String> model = new DefaultListModel<>();
-        BlockChain chain = apisChain.getChain();
         synchronized (apisChain) {
+            BlockChain chain = apisChain.getChain();
             for (Block b : chain.getChain()) {
                 model.addElement(b.toString());
             }
@@ -115,17 +137,10 @@ public class ApisChainGUI extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        pnlTop = new javax.swing.JPanel();
+        lblSession = new javax.swing.JLabel();
+        btSwitch = new javax.swing.JButton();
         jTabbedPane1 = new javax.swing.JTabbedPane();
-        pnlIdentity = new javax.swing.JPanel();
-        pnlIdentityForm = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
-        txtName = new javax.swing.JTextField();
-        jLabel2 = new javax.swing.JLabel();
-        txtPassword = new javax.swing.JPasswordField();
-        btCreate = new javax.swing.JButton();
-        btLogin = new javax.swing.JButton();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        txtSession = new javax.swing.JTextArea();
         pnlCredentials = new javax.swing.JPanel();
         pnlIssue = new javax.swing.JPanel();
         jLabel3 = new javax.swing.JLabel();
@@ -161,43 +176,18 @@ public class ApisChainGUI extends javax.swing.JFrame {
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("ApisChain");
 
-        pnlIdentity.setLayout(new java.awt.BorderLayout());
+        pnlTop.setLayout(new java.awt.BorderLayout());
 
-        pnlIdentityForm.setBorder(javax.swing.BorderFactory.createTitledBorder("Entrar ou criar as chaves de um apicultor"));
-        pnlIdentityForm.setLayout(new java.awt.GridLayout(3, 2, 8, 8));
+        lblSession.setText("Sessão");
+        pnlTop.add(lblSession, java.awt.BorderLayout.CENTER);
 
-        jLabel1.setText("Nome");
-        pnlIdentityForm.add(jLabel1);
+        btSwitch.setText("Trocar de interveniente");
+        btSwitch.addActionListener(this::btSwitchActionPerformed);
+        pnlTop.add(btSwitch, java.awt.BorderLayout.LINE_END);
 
-        txtName.setText("DGAV");
-        pnlIdentityForm.add(txtName);
+        getContentPane().add(pnlTop, java.awt.BorderLayout.PAGE_START);
 
-        jLabel2.setText("Palavra-passe");
-        pnlIdentityForm.add(jLabel2);
-
-        txtPassword.setText("abelha2026");
-        pnlIdentityForm.add(txtPassword);
-
-        btCreate.setText("Criar chaves de apicultor");
-        btCreate.addActionListener(this::btCreateActionPerformed);
-        pnlIdentityForm.add(btCreate);
-
-        btLogin.setText("Entrar");
-        btLogin.addActionListener(this::btLoginActionPerformed);
-        pnlIdentityForm.add(btLogin);
-
-        pnlIdentity.add(pnlIdentityForm, java.awt.BorderLayout.PAGE_START);
-
-        txtSession.setEditable(false);
-        txtSession.setColumns(20);
-        txtSession.setLineWrap(true);
-        txtSession.setRows(5);
-        txtSession.setText("Ninguém entrou. As autoridades são DGAV, Laboratorio e Certificador-DOP.");
-        jScrollPane1.setViewportView(txtSession);
-
-        pnlIdentity.add(jScrollPane1, java.awt.BorderLayout.CENTER);
-
-        jTabbedPane1.addTab("Identidade", pnlIdentity);
+        jTabbedPane1.setPreferredSize(new java.awt.Dimension(800, 520));
 
         pnlCredentials.setLayout(new java.awt.BorderLayout());
 
@@ -224,7 +214,6 @@ public class ApisChainGUI extends javax.swing.JFrame {
 
         txtData.setColumns(20);
         txtData.setRows(5);
-        txtData.setText("nome=Manuel Ferreira (fictício)\nnif=999999990");
         jScrollPane2.setViewportView(txtData);
 
         pnlCredentials.add(jScrollPane2, java.awt.BorderLayout.CENTER);
@@ -251,7 +240,7 @@ public class ApisChainGUI extends javax.swing.JFrame {
 
         pnlVerify.setLayout(new java.awt.BorderLayout());
 
-        pnlVerifyForm.setBorder(javax.swing.BorderFactory.createTitledBorder("Verificar (consumidor, sem chave)"));
+        pnlVerifyForm.setBorder(javax.swing.BorderFactory.createTitledBorder("Verificar (sem chave)"));
         pnlVerifyForm.setLayout(new java.awt.GridLayout(1, 3, 8, 8));
 
         jLabel9.setText("Id do lote ou da credencial");
@@ -297,7 +286,6 @@ public class ApisChainGUI extends javax.swing.JFrame {
 
         jTabbedPane1.addTab("Blockchain", pnlChain);
 
-        jTabbedPane1.setPreferredSize(new java.awt.Dimension(800, 520));
         getContentPane().add(jTabbedPane1, java.awt.BorderLayout.CENTER);
 
         lblStatus.setText(" ");
@@ -307,66 +295,18 @@ public class ApisChainGUI extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     /**
-     * Criar as chaves de um apicultor: gera o par de chaves e grava nome.pub,
-     * nome.priv (cifrada com a palavra-passe) e nome.id. Depois a DGAV regista-o.
+     * Trocar de interveniente: fecha este painel e volta ao ecrã de entrada.
      */
-    private void btCreateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btCreateActionPerformed
-        if (apisChain == null) {
-            return; // a ApisChain ainda está a abrir
-        }
-        String name = txtName.getText().trim();
-        String password = new String(txtPassword.getPassword());
-        new Thread(() -> {
-            try {
-                DigitalID id = DigitalID.create(name, Role.APICULTOR, password, apisChain.getKeysFolder());
-                SwingUtilities.invokeLater(() -> txtSession.setText("Chaves criadas: " + id
-                        + "\nA DGAV tem agora de o registar: separador Credenciais, tipo REGISTO_APICULTOR,"
-                        + " titular " + name + "."));
-            } catch (Exception ex) {
-                SwingUtilities.invokeLater(() -> showError(ex));
-            }
-        }).start();
-    }//GEN-LAST:event_btCreateActionPerformed
+    private void btSwitchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btSwitchActionPerformed
+        dispose();
+        login.setVisible(true);
+    }//GEN-LAST:event_btSwitchActionPerformed
 
     /**
-     * Entrar: lê a identidade e decifra a chave privada com a palavra-passe.
-     */
-    private void btLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btLoginActionPerformed
-        if (apisChain == null) {
-            return; // a ApisChain ainda está a abrir
-        }
-        String name = txtName.getText().trim();
-        String password = new String(txtPassword.getPassword());
-        new Thread(() -> {
-            try {
-                DigitalID id = DigitalID.load(name, apisChain.getKeysFolder());
-                PrivateKey key = DigitalID.loadPrivateKey(name, password, apisChain.getKeysFolder());
-                SwingUtilities.invokeLater(() -> {
-                    myId = id;
-                    myKey = key;
-                    txtSession.setText("Sessão: " + id);
-                    lblStatus.setText("Entrou: " + id.getName() + " (" + id.getRole() + ")");
-                });
-            } catch (Exception ex) {
-                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this,
-                        "Palavra-passe errada ou identidade inexistente", "Entrar", JOptionPane.ERROR_MESSAGE));
-            }
-        }).start();
-    }//GEN-LAST:event_btLoginActionPerformed
-
-    /**
-     * Emitir uma credencial com o papel de quem entrou. No registo do apicultor
-     * e do apiário, o titular é o nome do apicultor: a sua identidade dá o DID
-     * (e, no registo, a chave pública).
+     * Emitir uma credencial. No registo do apicultor e do apiário, o titular é o
+     * nome do apicultor: a sua identidade dá o DID (e, no registo, a chave pública).
      */
     private void btIssueActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btIssueActionPerformed
-        if (apisChain == null) {
-            return; // a ApisChain ainda está a abrir
-        }
-        if (myId == null) {
-            JOptionPane.showMessageDialog(this, "Entre primeiro no separador Identidade");
-            return;
-        }
         // 1. ler os campos na thread do Swing
         CredentialType type = CredentialType.valueOf((String) cbType.getSelectedItem());
         String subject = txtSubject.getText().trim();
@@ -375,11 +315,11 @@ public class ApisChainGUI extends javax.swing.JFrame {
         // 2. o consenso corre noutra thread
         new Thread(() -> {
             try {
-                // se o titular for o nome de um apicultor, usa-se o seu DID (e, no
-                // registo, a sua chave pública); senão é o id de um apiário ou de um lote
+                // se o titular for o nome de um apicultor, usa-se o seu DID;
+                // senão é o id de um apiário ou de um lote
                 String did = subject;
                 String key = "";
-                if (new java.io.File(apisChain.getKeysFolder(), subject + ".id").exists()) {
+                if (new File(apisChain.getKeysFolder(), subject + ".id").exists()) {
                     DigitalID beekeeper = DigitalID.load(subject, apisChain.getKeysFolder());
                     did = beekeeper.getDid();
                     if (type == CredentialType.REGISTO_APICULTOR) {
@@ -403,16 +343,9 @@ public class ApisChainGUI extends javax.swing.JFrame {
     }//GEN-LAST:event_btIssueActionPerformed
 
     /**
-     * Revogar uma credencial (só a DGAV consegue: as regras recusam os outros).
+     * Revogar uma credencial (só aparece à DGAV).
      */
     private void btRevokeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btRevokeActionPerformed
-        if (apisChain == null) {
-            return; // a ApisChain ainda está a abrir
-        }
-        if (myId == null) {
-            JOptionPane.showMessageDialog(this, "Entre primeiro no separador Identidade");
-            return;
-        }
         String id = txtRevokeId.getText().trim();
         String reason = txtReason.getText().trim();
         new Thread(() -> {
@@ -429,12 +362,9 @@ public class ApisChainGUI extends javax.swing.JFrame {
     }//GEN-LAST:event_btRevokeActionPerformed
 
     /**
-     * Verificar um lote ou uma credencial (não precisa de entrar).
+     * Verificar um lote ou uma credencial.
      */
     private void btVerifyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btVerifyActionPerformed
-        if (apisChain == null) {
-            return; // a ApisChain ainda está a abrir
-        }
         String id = txtVerifyId.getText().trim();
         new Thread(() -> {
             List<String> lines = apisChain.verify(id);
@@ -447,7 +377,7 @@ public class ApisChainGUI extends javax.swing.JFrame {
      */
     private void lstBlockChainValueChanged(javax.swing.event.ListSelectionEvent evt) {//GEN-FIRST:event_lstBlockChainValueChanged
         int i = lstBlockChain.getSelectedIndex();
-        if (i < 0 || apisChain == null) {
+        if (i < 0) {
             return;
         }
         synchronized (apisChain) {
@@ -468,37 +398,12 @@ public class ApisChainGUI extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_lstBlockChainValueChanged
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(ApisChainGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new ApisChainGUI().setVisible(true));
-    }
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btCreate;
     private javax.swing.JButton btIssue;
-    private javax.swing.JButton btLogin;
     private javax.swing.JButton btRevoke;
+    private javax.swing.JButton btSwitch;
     private javax.swing.JButton btVerify;
     private javax.swing.JComboBox<String> cbType;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
@@ -506,31 +411,27 @@ public class ApisChainGUI extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jLabel9;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JLabel lblChainState;
+    private javax.swing.JLabel lblSession;
     private javax.swing.JLabel lblStatus;
     private javax.swing.JList<String> lstBlockChain;
     private javax.swing.JPanel pnlChain;
     private javax.swing.JPanel pnlCredentials;
-    private javax.swing.JPanel pnlIdentity;
-    private javax.swing.JPanel pnlIdentityForm;
     private javax.swing.JPanel pnlIssue;
     private javax.swing.JPanel pnlRevoke;
+    private javax.swing.JPanel pnlTop;
     private javax.swing.JPanel pnlVerify;
     private javax.swing.JPanel pnlVerifyForm;
     private javax.swing.JTextArea txtBlock;
     private javax.swing.JTextArea txtData;
-    private javax.swing.JTextField txtName;
-    private javax.swing.JPasswordField txtPassword;
     private javax.swing.JTextField txtReason;
     private javax.swing.JTextArea txtResult;
     private javax.swing.JTextField txtRevokeId;
-    private javax.swing.JTextArea txtSession;
     private javax.swing.JTextField txtSubject;
     private javax.swing.JTextField txtVerifyId;
     // End of variables declaration//GEN-END:variables
