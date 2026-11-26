@@ -76,10 +76,10 @@ public class TesteIdentidade {
                 lancaExcecao(() -> DigitalID.load("Ninguem", keys)));
         // nomes que sairiam da pasta das chaves ou escreveriam por cima de outro ficheiro
         check("nome com ../ é recusado e nada é gravado fora da pasta",
-                lancaExcecao(() -> DigitalID.create("../fora", Role.LOJA, "x", keys))
+                lancaExcecao(() -> DigitalID.create("../fora", Role.APICULTOR, "x", keys))
                 && !new File(pasta.getParentFile(), "fora.pub").exists());
         check("nome com extensão (.priv) é recusado",
-                lancaExcecao(() -> DigitalID.create("DGAV.priv", Role.LOJA, "x", keys)));
+                lancaExcecao(() -> DigitalID.create("DGAV.priv", Role.APICULTOR, "x", keys)));
         check("nome com acentos é aceite",
                 DigitalID.create("Laboratório", Role.LAB, "x", keys).getName().equals("Laboratório"));
         // criar outra vez com o mesmo nome perdia a identidade (chaves novas, DID diferente)

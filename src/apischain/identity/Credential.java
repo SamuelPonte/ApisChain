@@ -18,7 +18,7 @@ import java.util.TreeMap;
  *
  * A credencial completa fica FORA da cadeia (OffChainStore), porque pode ter
  * dados pessoais (nome, NIF, coordenadas do apiário). Na cadeia só fica o seu
- * hash (IssueCredentialTx, issue #2). Para verificar uma credencial:
+ * hash (IssueCredentialTx). Para verificar uma credencial:
  * 1. calcular getHash() e comparar com o hash ancorado na cadeia;
  * 2. verificar a assinatura com a chave pública do emissor, obtida da cadeia.
  * Se alguém alterar um dado fora da cadeia, o hash deixa de coincidir.

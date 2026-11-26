@@ -10,7 +10,7 @@ import java.io.Serializable;
 /**
  * Autoridade inicial da rede (DGAV, Laboratório ou DOP), registada no bloco de
  * génese. As chaves públicas que estão aqui são a raiz de confiança: é com elas
- * que se verificam as assinaturas dos blocos e dos votos (consenso, issue #4).
+ * que se verificam as assinaturas dos blocos e dos votos (ProofOfAuthority).
  */
 public class Authority implements Serializable {
 

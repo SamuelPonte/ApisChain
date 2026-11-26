@@ -8,56 +8,66 @@ package apischain.consensus;
 import apischain.core.Block;
 import apischain.core.BlockChain;
 import apischain.core.Vote;
-import apischain.ledger.LedgerState;
-import apischain.ledger.Rules;
+import apischain.service.ApisChainServices;
 import apischain.transactions.Authority;
 import apischain.transactions.GenesisTx;
 import apischain.transactions.Transaction;
 import apischain.utils.SecurityUtils;
+import java.io.File;
+import java.security.PrivateKey;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
 /**
- * Regras do consenso Proof of Authority (PoA) com votação.
+ * Consenso Proof of Authority (PoA) com votação. Faz o papel do MinerPOW das
+ * aulas: decide como um bloco novo entra na cadeia.
  *
  * Só as autoridades declaradas no bloco de génese (DGAV, Laboratório e DOP)
- * podem propor blocos e votar. Um bloco entra na cadeia quando tem as
- * assinaturas de pelo menos quorum() autoridades diferentes: a do proponente
- * conta como uma, as outras são os votos (Vote).
+ * podem propor blocos e votar:
+ * 1. o proponente roda: o bloco n é proposto pela autoridade n módulo 3;
+ * 2. o proponente verifica a transação (regras), cria o bloco e assina o hash;
+ * 3. as outras autoridades verificam o bloco e votam (assinam o hash);
+ * 4. o bloco entra quando tem assinaturas de quorum() autoridades diferentes
+ *    (2 em 3; a do proponente conta como uma).
  *
- * Pressuposto (declarado no relatório): as autoridades não mentem de propósito
- * (não há nós bizantinos). Para tolerar 1 autoridade desonesta seria preciso
- * PBFT com pelo menos 4 validadores.
+ * Pressuposto: as autoridades não mentem de propósito (não há nós bizantinos).
+ * Para tolerar uma autoridade desonesta seria preciso PBFT, com pelo menos 4.
  *
- * Esta classe só tem métodos estáticos: são as regras do protocolo, iguais em
- * todos os nós. Cada nó (Node) usa-as para verificar os blocos sozinho.
+ * Na PoC as três autoridades estão no mesmo computador: as suas chaves privadas
+ * ficam em keys para poderem assinar. Na Fase 3 cada uma estará no seu nó.
  */
 public class ProofOfAuthority {
 
+    private final BlockChain chain = new BlockChain();             // a cadeia
+    private final String fileName;                                 // ficheiro da cadeia
+    private final HashMap<String, PrivateKey> keys = new HashMap<>(); // chave de cada autoridade (DID)
+
     /**
-     * Autoridades da rede, pela ordem em que estão na génese (a ordem conta
-     * para a rotação do proponente).
+     * Carrega a cadeia do ficheiro, se já existir.
      *
-     * @param chain cadeia do nó
-     * @param block bloco a verificar (é dele que se leem as autoridades quando
-     *              a cadeia ainda está vazia, ou seja, quando é o bloco de génese)
-     * @return lista das autoridades
-     * @throws Exception se não houver génese
+     * @param fileName ficheiro da cadeia, por exemplo data/blockchain.bc
+     * @throws Exception se o ficheiro existir mas não se conseguir ler
      */
-    public static List<Authority> getAuthorities(BlockChain chain, Block block) throws Exception {
-        // 1. a génese é o bloco 0 da cadeia; se a cadeia estiver vazia, é o próprio bloco
-        Block genesisBlock = (chain.getSize() > 0) ? chain.get(0) : block;
-        // 2. a primeira transação do bloco de génese é a GenesisTx
-        Transaction tx = Transaction.fromBase64(genesisBlock.getTransactions().get(0));
-        if (!(tx instanceof GenesisTx g)) {
-            throw new Exception("O bloco 0 não tem a transação de génese");
+    public ProofOfAuthority(String fileName) throws Exception {
+        this.fileName = fileName;
+        if (new File(fileName).exists()) {
+            chain.load(fileName);
         }
-        return g.getAuthorities();
     }
 
     /**
-     * Número mínimo de assinaturas diferentes para um bloco entrar: maioria
-     * das autoridades. Com 3 autoridades dá 2 (2 em 3).
+     * Junta a chave privada de uma autoridade, para ela poder propor e votar.
+     *
+     * @param did DID da autoridade
+     * @param key chave privada
+     */
+    public void addAuthorityKey(String did, PrivateKey key) {
+        keys.put(did, key);
+    }
+
+    /**
+     * Número mínimo de assinaturas diferentes: maioria das autoridades (2 em 3).
      *
      * @param authorities número de autoridades
      * @return quórum
@@ -67,97 +77,51 @@ public class ProofOfAuthority {
     }
 
     /**
-     * Proponente da vez: rotação pelas autoridades. O bloco de altura h é
-     * proposto pela autoridade h módulo n; se essa estiver desligada, a rede
-     * tenta a seguinte (skip = 1), e assim por diante.
+     * Acrescenta uma transação à cadeia, num bloco novo, pelo consenso.
      *
-     * @param authorities autoridades, pela ordem da génese
-     * @param height altura do bloco a propor (índice que vai ter na cadeia)
-     * @param skip quantas autoridades à frente (0 = a da vez)
-     * @return DID do proponente
+     * @param tx transação assinada pelo autor
+     * @return o bloco que entrou
+     * @throws Exception se as regras recusarem a transação ou não houver quórum
      */
-    public static String selectProposer(List<Authority> authorities, int height, int skip) {
-        return authorities.get((height + skip) % authorities.size()).getDid();
-    }
-
-    /**
-     * Procura uma autoridade pelo DID.
-     *
-     * @return a autoridade, ou null se o DID não for uma autoridade
-     */
-    private static Authority findAuthority(List<Authority> authorities, String did) {
+    public synchronized Block addTransaction(Transaction tx) throws Exception {
+        // 1. as autoridades: da génese que está na cadeia, ou da própria transação de génese
+        List<Authority> authorities = (tx instanceof GenesisTx g)
+                ? g.getAuthorities() : ApisChainServices.getAuthorities(chain);
+        // 2. regras dos validadores (lança exceção se a transação for recusada)
+        ApisChainServices.validate(tx, chain);
+        // 3. o proponente da vez cria o bloco e assina o hash
+        String proposer = authorities.get(chain.getSize() % authorities.size()).getDid();
+        if (!keys.containsKey(proposer)) {
+            throw new Exception("A chave do proponente " + proposer + " não está neste computador");
+        }
+        Block block = new Block(chain.getSize(), chain.getLastBlockHash(), tx.toBase64(), proposer);
+        block.setSignature(SecurityUtils.sign(block.getCurrentHash(), keys.get(proposer)));
+        // 4. as outras autoridades verificam o bloco (íntegro e assinado pelo proponente) e votam
+        boolean blockOk = block.isValid() && countSignatures(block, authorities) == 1;
         for (Authority a : authorities) {
-            if (a.getDid().equals(did)) {
-                return a;
+            PrivateKey key = keys.get(a.getDid());
+            if (blockOk && key != null && !a.getDid().equals(proposer)) {
+                block.addVote(new Vote(a.getDid(), SecurityUtils.sign(block.getCurrentHash(), key)));
             }
         }
-        return null;
+        // 5. sem quórum o bloco não entra
+        int signatures = countSignatures(block, authorities);
+        if (signatures < quorum(authorities.size())) {
+            throw new Exception("Sem quórum: " + signatures + " assinaturas, são precisas "
+                    + quorum(authorities.size()));
+        }
+        // 6. acrescentar à cadeia e gravar
+        if (!chain.add(block)) {
+            throw new Exception("A cadeia recusou o bloco #" + block.getIndex());
+        }
+        chain.save(fileName);
+        return block;
     }
 
     /**
-     * Verifica se uma assinatura sobre o hash do bloco é de uma autoridade.
-     */
-    private static boolean isSignedBy(Block block, String signature, Authority a) {
-        try {
-            return SecurityUtils.verify(block.getCurrentHash(), signature,
-                    SecurityUtils.publicKeyFromBase64(a.getPublicKey()));
-        } catch (Exception e) {
-            return false;  // chave pública mal formada
-        }
-    }
-
-    /**
-     * Verifica um bloco proposto ANTES de votar: o bloco encaixa na cadeia,
-     * não foi alterado, foi proposto e assinado por uma autoridade, e todas as
-     * transações passam nas regras dos validadores.
-     *
-     * Não verifica os votos (quando um validador vota, o bloco ainda não os tem).
-     *
-     * @param block bloco proposto
-     * @param chain cadeia do nó que verifica
-     * @throws Exception com a razão, se o bloco for recusado
-     */
-    public static void verifyBlock(Block block, BlockChain chain) throws Exception {
-        // 1. o bloco encaixa no fim da cadeia e não foi alterado
-        if (block.getIndex() != chain.getSize()) {
-            throw new Exception("Bloco #" + block.getIndex() + " fora de ordem (a cadeia tem "
-                    + chain.getSize() + " blocos)");
-        }
-        if (!block.getPreviousHash().equals(chain.getLastBlockHash())) {
-            throw new Exception("O bloco #" + block.getIndex() + " não aponta para o último bloco");
-        }
-        if (!block.isValid()) {
-            throw new Exception("O bloco #" + block.getIndex() + " foi alterado (hash ou Merkle)");
-        }
-        // 2. o proponente é uma autoridade e assinou o hash do bloco
-        List<Authority> authorities = getAuthorities(chain, block);
-        Authority proposer = findAuthority(authorities, block.getValidator());
-        if (proposer == null) {
-            throw new Exception(block.getValidator() + " não é uma autoridade: não pode propor blocos");
-        }
-        if (!isSignedBy(block, block.getSignature(), proposer)) {
-            throw new Exception("A assinatura do proponente " + block.getValidator() + " é inválida");
-        }
-        // 3. cada transação passa nas regras, pela ordem do bloco; o estado vai
-        //    sendo atualizado para apanhar, por exemplo, duas vendas do mesmo
-        //    frasco dentro do mesmo bloco
-        LedgerState state = new LedgerState(chain);
-        for (String txt : block.getTransactions()) {
-            Transaction tx = Transaction.fromBase64(txt);
-            Transaction result = Rules.check(tx, state, block.getValidator());
-            if (result != tx) {
-                // as regras transformaram a transação num alerta: o proponente
-                // devia ter posto o alerta no bloco em vez da transação
-                throw new Exception("O bloco tem uma transação que devia ser um alerta de fraude: " + tx);
-            }
-            state.apply(tx);
-        }
-    }
-
-    /**
-     * Conta as assinaturas de autoridades DIFERENTES num bloco: a do
-     * proponente mais os votos válidos. Votos repetidos, de quem não é
-     * autoridade ou com assinatura falsa não contam.
+     * Conta as assinaturas de autoridades DIFERENTES num bloco: a do proponente
+     * mais os votos. Assinaturas falsas, repetidas ou de quem não é autoridade
+     * não contam.
      *
      * @param block bloco
      * @param authorities autoridades da rede
@@ -165,37 +129,30 @@ public class ProofOfAuthority {
      */
     public static int countSignatures(Block block, List<Authority> authorities) {
         HashSet<String> signers = new HashSet<>();
-        // 1. a assinatura do proponente
-        Authority proposer = findAuthority(authorities, block.getValidator());
-        if (proposer != null && isSignedBy(block, block.getSignature(), proposer)) {
-            signers.add(proposer.getDid());
-        }
-        // 2. os votos (o HashSet ignora uma autoridade que vote duas vezes)
-        for (Vote v : block.getVotes()) {
-            Authority a = findAuthority(authorities, v.getValidator());
-            if (a != null && isSignedBy(block, v.getSignature(), a)) {
-                signers.add(a.getDid());
+        for (Authority a : authorities) {
+            try {
+                // 1. a autoridade é o proponente e assinou o bloco?
+                if (a.getDid().equals(block.getValidator())
+                        && SecurityUtils.verify(block.getCurrentHash(), block.getSignature(),
+                                SecurityUtils.publicKeyFromBase64(a.getPublicKey()))) {
+                    signers.add(a.getDid());
+                }
+                // 2. a autoridade votou no bloco? (o HashSet ignora votos repetidos)
+                for (Vote v : block.getVotes()) {
+                    if (a.getDid().equals(v.getValidator())
+                            && SecurityUtils.verify(block.getCurrentHash(), v.getSignature(),
+                                    SecurityUtils.publicKeyFromBase64(a.getPublicKey()))) {
+                        signers.add(a.getDid());
+                    }
+                }
+            } catch (Exception e) {
+                // chave pública mal formada: a assinatura não conta
             }
         }
         return signers.size();
     }
 
-    /**
-     * Verificação completa de um bloco que vai entrar na cadeia: verifyBlock
-     * mais o quórum de assinaturas.
-     *
-     * @param block bloco
-     * @param chain cadeia do nó que verifica
-     * @throws Exception com a razão, se o bloco for recusado
-     */
-    public static void verifyCommit(Block block, BlockChain chain) throws Exception {
-        verifyBlock(block, chain);
-        List<Authority> authorities = getAuthorities(chain, block);
-        int signatures = countSignatures(block, authorities);
-        int needed = quorum(authorities.size());
-        if (signatures < needed) {
-            throw new Exception("O bloco #" + block.getIndex() + " só tem " + signatures
-                    + " assinaturas de autoridades; são precisas " + needed);
-        }
+    public BlockChain getChain() {
+        return chain;
     }
 }

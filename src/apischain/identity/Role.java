@@ -9,12 +9,11 @@ package apischain.identity;
  * Papel de um interveniente na ApisChain.
  *
  * As três primeiras são as autoridades (validam blocos no Proof of Authority);
- * o apicultor e a loja só criam transações.
+ * o apicultor só cria lotes.
  */
 public enum Role {
-    DGAV,       // regista apicultores, apiários e lojas; revoga credenciais
+    DGAV,       // regista apicultores e apiários; revoga credenciais
     LAB,        // Laboratório: emite a análise de cada lote
     DOP,        // Certificador DOP: emite o certificado de origem
-    APICULTOR,  // cria lotes e embala frascos
-    LOJA        // regista a venda de cada frasco
+    APICULTOR   // cria os lotes
 }

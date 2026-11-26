@@ -28,7 +28,7 @@ import java.security.PublicKey;
  * RGPD: o DigitalID tem o nome do interveniente, por isso fica só no computador
  * do dono (ficheiro nome.id) e NUNCA vai para a cadeia. Na cadeia entram apenas
  * o DID e a chave pública, através da IssueCredentialTx do registo (subject e
- * subjectKey), que é o que o LedgerState lê. Os nomes das autoridades (DGAV,
+ * subjectKey), que é o que ApisChainServices.getPublicKey lê. Os nomes das autoridades (DGAV,
  * Laboratório, DOP) não são dados pessoais.
  *
  * Diferenças face ao DigitalID do professor:

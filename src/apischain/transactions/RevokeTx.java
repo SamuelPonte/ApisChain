@@ -8,7 +8,7 @@ package apischain.transactions;
 /**
  * Revogação de uma credencial (por exemplo, a DGAV revoga o registo de um
  * apicultor). A credencial continua na cadeia, porque a cadeia não se apaga,
- * mas passa a contar como revogada (LedgerState.isRevoked, issue #3).
+ * mas passa a contar como revogada (ApisChainServices.isRevoked).
  */
 public class RevokeTx extends Transaction {
 

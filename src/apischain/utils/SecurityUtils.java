@@ -38,7 +38,7 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class SecurityUtils {
 
-    // algoritmo de hash usado nos blocos, nas transações e na árvore de Merkle
+    // algoritmo de hash usado nos blocos, nas transações e nas credenciais
     public static final String HASH_ALGORITHM = "SHA3-256";
     // algoritmo de assinatura: calcula o SHA3-256 dos dados e cifra-o com a chave privada RSA
     public static final String SIGN_ALGORITHM = "SHA3-256withRSA";

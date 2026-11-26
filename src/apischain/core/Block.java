@@ -15,61 +15,51 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Bloco da ApisChain.
+ * Bloco da ApisChain: guarda UMA transação (em Base64), como o bloco das aulas
+ * guarda um dado.
  *
  * Diferenças face ao bloco das aulas:
  * - não tem nonce nem dificuldade, porque o consenso é Proof of Authority
  *   e não Proof of Work (não há mineração);
- * - guarda várias transações e a raiz de Merkle delas;
+ * - guarda o índice e a data;
  * - guarda quem o propôs (validator), a assinatura do proponente e os votos
- *   das outras autoridades.
- *
- * O hash do bloco cobre o cabeçalho (índice, data, hash anterior, raiz de
- * Merkle e validador). As transações ficam protegidas através da raiz de Merkle.
+ *   (assinaturas) das outras autoridades.
  */
 public class Block implements Serializable {
 
     private final int index;              // posição na cadeia (0 = génese)
     private final long timestamp;         // data de criação em milissegundos
     private final String previousHash;    // ligação ao bloco anterior
-    private final List<String> transactions; // transações serializadas em Base64
-    private final String merkleRoot;      // raiz de Merkle das transações
+    private final String data;            // transação serializada em Base64
     private final String validator;       // DID da autoridade que propôs o bloco
-    private final String currentHash;     // hash do cabeçalho
+    private final String currentHash;     // hash do bloco
     private String signature;             // assinatura do proponente sobre currentHash
     private final List<Vote> votes;       // votos das outras autoridades
 
     /**
-     * Cria um bloco novo com as transações dadas.
+     * Cria um bloco novo.
      *
      * @param index posição na cadeia
      * @param previousHash hash do bloco anterior
-     * @param transactions transações em Base64 (pelo menos uma)
+     * @param data transação em Base64
      * @param validator DID da autoridade que propõe o bloco
      */
-    public Block(int index, String previousHash, List<String> transactions, String validator) {
-        // 1. um bloco sem transações não faz sentido e a árvore de Merkle não teria raiz
-        if (transactions.isEmpty()) {
-            throw new IllegalArgumentException("Um bloco tem de ter pelo menos uma transação");
-        }
-        // 2. guardar os dados do cabeçalho
+    public Block(int index, String previousHash, String data, String validator) {
+        // 1. guardar os dados do bloco
         this.index = index;
         this.timestamp = System.currentTimeMillis();
         this.previousHash = previousHash;
+        this.data = data;
         this.validator = validator;
-        // 3. copiar as transações (para ninguém as alterar por fora)
-        this.transactions = new ArrayList<>(transactions);
-        // 4. calcular a raiz de Merkle das transações
-        this.merkleRoot = new MerkleTree(this.transactions).getRoot();
-        // 5. calcular o hash do cabeçalho
+        // 2. calcular o hash
         this.currentHash = calculateHash();
-        // 6. ainda sem assinatura nem votos: são acrescentados pelo consenso
+        // 3. ainda sem assinatura nem votos: são acrescentados pelo consenso
         this.signature = "";
         this.votes = new ArrayList<>();
     }
 
     /**
-     * Hash do cabeçalho do bloco.
+     * Hash do bloco: índice, data, hash anterior, transação e validador.
      *
      * @return hash SHA3-256 em Base64
      */
@@ -77,32 +67,16 @@ public class Block implements Serializable {
         // o "" no início obriga o Java a juntar como texto; sem ele, index + timestamp
         // seria uma SOMA de números e blocos diferentes podiam dar o mesmo resultado
         return SecurityUtils.getHash("" + index + "|" + timestamp + "|" + previousHash
-                + "|" + merkleRoot + "|" + validator);
+                + "|" + data + "|" + validator);
     }
 
     /**
-     * Verifica a integridade interna do bloco: o hash do cabeçalho e a raiz de
-     * Merkle têm de corresponder ao conteúdo. As assinaturas e os votos são
-     * verificados pelo consenso, que conhece as chaves públicas das autoridades.
+     * O bloco não foi alterado? (o hash guardado tem de ser o hash do conteúdo)
      *
-     * @return true se o bloco não foi alterado
+     * @return true se o bloco estiver íntegro
      */
     public boolean isValid() {
-        // 1. o cabeçalho não foi alterado?
-        if (!currentHash.equals(calculateHash())) {
-            return false;
-        }
-        // 2. as transações não foram alteradas? (recalcula-se a raiz de Merkle)
-        return merkleRoot.equals(new MerkleTree(transactions).getRoot());
-    }
-
-    /**
-     * Árvore de Merkle das transações (para mostrar e gerar provas).
-     *
-     * @return árvore de Merkle
-     */
-    public MerkleTree getMerkleTree() {
-        return new MerkleTree(transactions);
+        return currentHash.equals(calculateHash());
     }
 
     /**
@@ -123,17 +97,6 @@ public class Block implements Serializable {
         votes.add(vote);
     }
 
-    /**
-     * APENAS PARA DEMONSTRAÇÃO: altera uma transação sem recalcular nada,
-     * como faria um atacante com acesso ao ficheiro da cadeia.
-     *
-     * @param i posição da transação
-     * @param newData novo conteúdo
-     */
-    public void tamperTransaction(int i, String newData) {
-        transactions.set(i, newData);
-    }
-
     public int getIndex() {
         return index;
     }
@@ -146,12 +109,8 @@ public class Block implements Serializable {
         return previousHash;
     }
 
-    public List<String> getTransactions() {
-        return Collections.unmodifiableList(transactions);
-    }
-
-    public String getMerkleRoot() {
-        return merkleRoot;
+    public String getData() {
+        return data;
     }
 
     public String getValidator() {
@@ -172,15 +131,9 @@ public class Block implements Serializable {
 
     @Override
     public String toString() {
-        String data = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new Date(timestamp));
-        return (isValid() ? "OK " : "CORROMPIDO ")
-                + "Bloco #" + index + " [" + data + "] "
-                + "anterior=" + previousHash.substring(0, Math.min(8, previousHash.length())) + "… "
-                + "hash=" + currentHash.substring(0, 8) + "… "
-                + "merkle=" + merkleRoot.substring(0, 8) + "… "
-                + transactions.size() + " tx, validador=" + validator
-                + ", votos=" + votes.size();
+        String date = new SimpleDateFormat("dd/MM HH:mm:ss").format(new Date(timestamp));
+        return "#" + index + " [" + date + "] " + currentHash.substring(0, 8) + (isValid() ? " OK" : " CORROMPIDO");
     }
 
-    private static final long serialVersionUID = 202611110003L;
+    private static final long serialVersionUID = 202611260001L;
 }

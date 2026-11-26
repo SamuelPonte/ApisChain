@@ -24,7 +24,7 @@ import java.security.PublicKey;
  * 1. é abstrata: os campos comuns (autor, data, assinatura) ficam aqui e cada
  *    subclasse acrescenta os seus;
  * 2. a chave pública do autor NÃO vai dentro da transação. Quem verifica tem de
- *    a ir buscar à cadeia (LedgerState, issue #3). No código do professor a
+ *    a ir buscar à cadeia (ApisChainServices.getPublicKey). No código do professor a
  *    chave vinha na própria transação, e um atacante podia assinar em nome de
  *    outro com as suas próprias chaves;
  * 3. os campos assinados são separados por "|", para "ab"+"c" e "a"+"bc" não
@@ -35,7 +35,7 @@ import java.security.PublicKey;
  * 5. o texto assinado começa pelo nome da classe, para a assinatura de um tipo
  *    não servir para outro tipo com os mesmos valores.
  *
- * Uso: criar a transação (new SaleTx(...)) e só DEPOIS chamar sign(chave).
+ * Uso: criar a transação (new RevokeTx(...)) e só DEPOIS chamar sign(chave).
  * Não se assina no construtor porque, quando o construtor desta classe corre,
  * os campos da subclasse ainda não estão preenchidos.
  */

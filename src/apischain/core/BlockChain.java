@@ -17,7 +17,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Cadeia de blocos (o "livro-razão"). Cada nó da rede tem a sua cópia.
+ * Cadeia de blocos (o "livro-razão").
  *
  * A cadeia só aceita blocos que encaixam no fim (índice e hash anterior certos)
  * e que estão íntegros. Quem decide QUE bloco entra é o consenso (PoA); a
