@@ -1,0 +1,32 @@
+// ApisChain · fluxo de emissão, armazenamento e verificação de uma credencial (Fase 2)
+// Gerar a imagem: dot -Tpng -Gdpi=150 diagrama_fluxo_fase2.dot -o diagrama_fluxo_fase2.png
+digraph Fluxo {
+  rankdir=TB; nodesep=0.3; ranksep=0.35; bgcolor="white";
+  graph [fontname="Arial", fontsize=12, labeljust=l];
+  node [fontname="Arial", fontsize=10, shape=box, style="rounded,filled", fillcolor="white", color="#666666", width=3.2];
+  edge [fontname="Arial", fontsize=9, color="#555555"];
+
+  subgraph cluster_e { label="Emissão (por exemplo, o Laboratório)"; style=rounded; color="#1D76DB";
+    e1 [label="1. Entrar: a palavra-passe decifra a chave privada"];
+    e2 [label="2. Credential AN-0001 (dados da análise)\nassinada pelo Laboratório"];
+    e3 [label="3. IssueCredentialTx com o hash SHA3-256\nda credencial, assinada pelo Laboratório"];
+  }
+  subgraph cluster_c { label="Consenso Proof of Authority"; style=rounded; color="#B07D00";
+    c1 [label="4. Regras: assinatura com a chave da cadeia,\npapel do autor, id único", fillcolor="#FFF6E5"];
+    c2 [label="5. Proponente da vez cria e assina o bloco;\nas outras autoridades votam (2 em 3)", fillcolor="#FFF6E5"];
+  }
+  subgraph cluster_a { label="Armazenamento"; style=rounded; color="#0E8A16";
+    a1 [label="6. Bloco na cadeia (só o hash)", shape=cylinder, fillcolor="#E8F3EA"];
+    a2 [label="7. Credencial completa fora da cadeia", shape=cylinder, fillcolor="#F4F4F4"];
+  }
+  subgraph cluster_v { label="Verificação (consumidor, sem chave)"; style=rounded; color="#6E7781";
+    v1 [label="8. Lê o código do lote (LOTE-0001)"];
+    v2 [label="9. Para o lote e as credenciais sobre ele:\nnão revogada · igual à ancorada ·\nhash = hash na cadeia · assinatura do emissor"];
+    v3 [label="10. AUTÊNTICO ou NÃO CONFIAR", fillcolor="#EEF3FB"];
+  }
+  e1 -> e2 -> e3 -> c1 -> c2 -> a1 -> a2;
+  a2 -> v1 [style=invis];
+  v1 -> v2 -> v3;
+  a1 -> v2 [style=dashed, constraint=false, label="lê a cadeia"];
+  a2 -> v2 [style=dashed, constraint=false, label="compara o hash"];
+}

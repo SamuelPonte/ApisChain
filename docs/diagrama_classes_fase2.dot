@@ -1,0 +1,64 @@
+// ApisChain · diagrama de classes da PoC da Fase 2 (versão simples, a partir do código)
+// Gerar a imagem: dot -Tpng -Gdpi=150 diagrama_classes_fase2.dot -o diagrama_classes_fase2.png
+digraph Classes {
+  rankdir=TB; nodesep=0.3; ranksep=0.55; bgcolor="white";
+  graph [fontname="Arial", fontsize=12, labeljust=l];
+  node [shape=plaintext, fontname="Arial", fontsize=9];
+  edge [fontname="Arial", fontsize=8, color="#555555"];
+
+  subgraph cluster_gui { label="apischain.gui"; style=rounded; color="#999999";
+    LoginFrame [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#EEF3FB"><B>LoginFrame</B> (JFrame)</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- apisChain: ApisChain</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ main(args)<BR/>- btLoginActionPerformed / btCreate... / btConsumer...</TD></TR></TABLE>>];
+    ApisChainGUI [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#EEF3FB"><B>ApisChainGUI</B> (JFrame)</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- apisChain: ApisChain<BR/>- myId: DigitalID<BR/>- myKey: PrivateKey</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- btIssue / btRevoke / btVerify...<BR/>- updateChain()</TD></TR></TABLE>>];
+  }
+  subgraph cluster_service { label="apischain.service"; style=rounded; color="#999999";
+    ApisChain [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>ApisChain</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- poa: ProofOfAuthority<BR/>- offChain: OffChainStore</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ issue(issuer, key, type, subject, subjectKey, data): String<BR/>+ revoke(dgav, key, credentialId, reason)<BR/>+ verify(id): List&lt;String&gt;</TD></TR></TABLE>>];
+    ApisChainServices [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#E8F3EA"><B>ApisChainServices</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getAuthorities(chain)<BR/>+ getPublicKey(did, chain) / getRole(did, chain)<BR/>+ getCredential(id, chain) / isRevoked(id, chain)<BR/>+ validate(tx, chain)  (regras)</TD></TR></TABLE>>];
+  }
+  subgraph cluster_consensus { label="apischain.consensus"; style=rounded; color="#999999";
+    ProofOfAuthority [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#FFF6E5"><B>ProofOfAuthority</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- chain: BlockChain<BR/>- keys: HashMap&lt;String,PrivateKey&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ addTransaction(tx): Block<BR/>+ quorum(n): int  (2 em 3)<BR/>+ countSignatures(block, authorities): int</TD></TR></TABLE>>];
+  }
+  subgraph cluster_core { label="apischain.core"; style=rounded; color="#999999";
+    BlockChain [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>BlockChain</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- chain: ArrayList&lt;Block&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ add(b): boolean<BR/>+ isValid() / getInvalidIndex()<BR/>+ save(f) / load(f)</TD></TR></TABLE>>];
+    Block [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>Block</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- index, timestamp, previousHash<BR/>- data: String (transação em Base64)<BR/>- validator, currentHash, signature<BR/>- votes: List&lt;Vote&gt;</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ calculateHash() / isValid()</TD></TR></TABLE>>];
+    Vote [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>Vote</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- validator, signature</TD></TR></TABLE>>];
+  }
+  subgraph cluster_tx { label="apischain.transactions"; style=rounded; color="#999999";
+    Transaction [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><FONT POINT-SIZE="8">&laquo;abstract&raquo;</FONT><BR/><B>Transaction</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- author (DID), timestamp, signature</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getContent()  {abstract}<BR/>+ sign(key) / isSignatureValid(pub)<BR/>+ toBase64() / fromBase64(txt)</TD></TR></TABLE>>];
+    GenesisTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>GenesisTx</B></TD></TR><TR><TD ALIGN="LEFT">- authorities: List&lt;Authority&gt;</TD></TR></TABLE>>];
+    Authority [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>Authority</B></TD></TR><TR><TD ALIGN="LEFT">- did, role, publicKey</TD></TR></TABLE>>];
+    IssueCredentialTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>IssueCredentialTx</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- credentialId, credentialType<BR/>- subject, credentialHash<BR/>- subjectKey (só no registo do apicultor)</TD></TR></TABLE>>];
+    RevokeTx [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>RevokeTx</B></TD></TR><TR><TD ALIGN="LEFT">- credentialId, reason</TD></TR></TABLE>>];
+  }
+  subgraph cluster_identity { label="apischain.identity"; style=rounded; color="#999999";
+    DigitalID [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>DigitalID</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- name, role, publicKey, did, signature</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ createDid(publicKey)<BR/>+ create(...) / load(...) / loadPrivateKey(...)</TD></TR></TABLE>>];
+    Credential [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>Credential</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">- id, type, issuer, subject<BR/>- data: TreeMap, issuedAt, signature</TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getHash() / sign(key) / isSignatureValid(pub)</TD></TR></TABLE>>];
+    OffChainStore [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>OffChainStore</B></TD></TR><TR><TD ALIGN="LEFT">+ put(c) / get(id) / save(f) / load(f)</TD></TR></TABLE>>];
+    Role [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><FONT POINT-SIZE="8">&laquo;enum&raquo;</FONT><BR/><B>Role</B></TD></TR><TR><TD ALIGN="LEFT">DGAV, LAB, DOP, APICULTOR</TD></TR></TABLE>>];
+    CredentialType [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><FONT POINT-SIZE="8">&laquo;enum&raquo;</FONT><BR/><B>CredentialType</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">REGISTO_APICULTOR, REGISTO_APIARIO,<BR/>LOTE, ANALISE_LOTE, CERTIFICADO_ORIGEM</TD></TR></TABLE>>];
+  }
+  subgraph cluster_utils { label="apischain.utils"; style=rounded; color="#999999";
+    SecurityUtils [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>SecurityUtils</B></TD></TR><TR><TD ALIGN="LEFT" BALIGN="LEFT">+ getHash (SHA3-256) / generateKeyPair (RSA)<BR/>+ sign / verify (SHA3-256withRSA)<BR/>+ chaves em ficheiro (AES-GCM + PBKDF2)</TD></TR></TABLE>>];
+    Conversion [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="3"><TR><TD BGCOLOR="#F4F4F4"><B>Conversion</B></TD></TR><TR><TD ALIGN="LEFT">+ objectToString / stringToObject</TD></TR></TABLE>>];
+  }
+
+  LoginFrame -> ApisChainGUI [style=dashed, label="abre com a sessão"];
+  LoginFrame -> ApisChain [style=dashed, label="abre"];
+  ApisChainGUI -> ApisChain [label="usa"];
+  ApisChain -> ProofOfAuthority;
+  ApisChain -> OffChainStore;
+  ApisChain -> ApisChainServices [style=dashed];
+  ProofOfAuthority -> ApisChainServices [style=dashed, label="validate"];
+  ProofOfAuthority -> BlockChain [arrowtail=diamond, dir=back];
+  BlockChain -> Block [arrowtail=diamond, dir=back, headlabel="*"];
+  Block -> Vote [arrowtail=diamond, dir=back, headlabel="*"];
+  GenesisTx -> Transaction [arrowhead=empty];
+  IssueCredentialTx -> Transaction [arrowhead=empty];
+  RevokeTx -> Transaction [arrowhead=empty];
+  GenesisTx -> Authority [arrowtail=diamond, dir=back, headlabel="3"];
+  Transaction -> Conversion [style=dashed];
+  OffChainStore -> Credential [arrowtail=diamond, dir=back, headlabel="*"];
+  Credential -> CredentialType;
+  DigitalID -> Role;
+  IssueCredentialTx -> Credential [style=dashed, label="hash"];
+  Block -> SecurityUtils [style=dashed];
+}

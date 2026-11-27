@@ -1,0 +1,27 @@
+// ApisChain · arquitetura da PoC da Fase 2 (versão simples)
+// Gerar a imagem: dot -Tpng -Gdpi=150 diagrama_arquitetura_fase2.dot -o diagrama_arquitetura_fase2.png
+digraph Arquitetura {
+  rankdir=TB; nodesep=0.4; ranksep=0.45; bgcolor="white";
+  graph [fontname="Arial", fontsize=12, labeljust=l];
+  node [fontname="Arial", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#666666"];
+  edge [fontname="Arial", fontsize=10, color="#555555"];
+
+  act [label=<<B>Intervenientes</B><BR/>DGAV: regista apicultores e apiários; revoga credenciais<BR/>Laboratório: emite a análise do lote<BR/>Certificador DOP: emite o certificado de origem<BR/>Apicultor: cria os lotes<BR/>Consumidor: verifica o lote do frasco (sem chave)>];
+  gui [label="Interface Swing\nLoginFrame: entrar com a palavra-passe da chave privada\nApisChainGUI: Credenciais · Verificar · Blockchain", fillcolor="#EEF3FB"];
+  svc [label="ApisChain (serviço)\nemitir · revogar · verificar credenciais", fillcolor="#EEF3FB"];
+  poa [label="ProofOfAuthority\n1. o proponente da vez cria e assina o bloco\n2. as outras autoridades votam (assinam o hash)\n3. o bloco entra com 2 assinaturas em 3", fillcolor="#FFF6E5"];
+  rules [label="ApisChainServices\nregras: assinatura com a chave da cadeia,\npapel do autor, DID da chave, revogação", fillcolor="#FFF6E5"];
+  keys [label="data/keys\nnome.pub · nome.priv (cifrada) · nome.id", shape=folder, fillcolor="#F4F4F4"];
+  chain [label="Na cadeia: data/blockchain.bc\nDIDs e chaves públicas · hashes das credenciais\nrevogações · assinaturas e votos", shape=cylinder, fillcolor="#E8F3EA"];
+  off [label="Fora da cadeia: data/offchain.dat\ncredenciais completas assinadas\n(nomes, NIF, moradas, coordenadas)", shape=cylinder, fillcolor="#F4F4F4"];
+
+  act -> gui [arrowhead=none, color="#AAAAAA"];
+  gui -> keys [style=dashed, label="chave privada"];
+  gui -> svc;
+  svc -> poa [label="transação assinada"];
+  svc -> off [label="guarda a credencial\ndepois de aceite"];
+  poa -> rules [label="verifica"];
+  poa -> chain [label="acrescenta o bloco"];
+  {rank=same; poa; off;}
+  {rank=same; rules; chain;}
+}
